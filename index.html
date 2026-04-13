@@ -15,13 +15,13 @@ import { getDatabase, ref, set, get, onValue, remove, update }
 // ★ 請將下方設定替換為您自己的 Firebase 設定 ★
 // ══════════════════════════════════════════════
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAJtkADc5o0773JNqhMDXuJl0qIaN8ET-w",
-  authDomain: "jjvsmuis.firebaseapp.com",
-  databaseURL: "https://jjvsmuis-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "jjvsmuis",
-  storageBucket: "jjvsmuis.firebasestorage.app",
+  apiKey:            "AIzaSyAJtkADc5o0773JNqhMDXuJl0qIaN8ET-w",
+  authDomain:        "jjvsmuis.firebaseapp.com",
+  databaseURL:       "https://jjvsmuis-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "jjvsmuis",
+  storageBucket:     "jjvsmuis.firebasestorage.app",
   messagingSenderId: "309582390298",
-  appId: "1:309582390298:web:42de97e5a1c3f39796dda3"
+  appId:             "1:309582390298:web:42de97e5a1c3f39796dda3"
 };
 // ══════════════════════════════════════════════
 
@@ -30,12 +30,6 @@ let FB_READY = false;
 
 function initFirebase(){
   try{
-    // Validate config
-    if(FIREBASE_CONFIG.apiKey.includes('請填入')){
-      console.warn('[Firebase] 未設定，使用 localStorage 離線模式');
-      window.__fbReady(null);
-      return;
-    }
     app = initializeApp(FIREBASE_CONFIG);
     db  = getDatabase(app);
     FB_READY = true;
@@ -290,8 +284,9 @@ tbody td:last-child,thead th:last-child{border-right:none}
         <input type="date" id="viewDate" class="date-input">
         <span id="dayDisplay" class="day-badge"></span>
         <div style="display:flex;gap:4px">
-          <button class="btn bg bsm" id="btnAM">☀ 上午 08–12</button>
-          <button class="btn bgh bsm" id="btnPM">🌆 下午 12–22</button>
+          <button class="btn bg bsm" id="btnAM">☀ 上午 08–13</button>
+          <button class="btn bgh bsm" id="btnPM">🌆 下午 13–17:30</button>
+          <button class="btn bgh bsm" id="btnEV">🌙 放學後 17:30–21:30</button>
         </div>
         <div class="legend">
           <div class="leg"><div class="ldot" style="background:var(--blue2)"></div>學生預約</div>
@@ -657,7 +652,11 @@ function hide(id){ const e=G(id); if(e) e.classList.add('hidden'); }
 function toggle(id,c){ c?show(id):hide(id); }
 function V(id){ const e=G(id); return e?e.value.trim():''; }
 function maxDateStr(){ const a=(users[curUser]?.type==='teacher'||isAdmin)?14:2; const d=new Date(); d.setDate(d.getDate()+a); return dateStr(d); }
-function getVis(){ return boardView==='am'?TIME_SLOTS.filter(t=>parseInt(t)<12):TIME_SLOTS.filter(t=>parseInt(t)>=12); }
+function getVis(){
+  if(boardView==='am') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return h>=8&&(h<13); });
+  if(boardView==='pm') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h>=13)&&(h<17||(h===17&&m===0)); });
+  return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h===17&&m>=30)||h===18||h===19||h===20||(h===21&&m===0); });
+}
 function genSlots(s,e){ const r=[]; const [sh,sm]=s.split(':').map(Number); const [eh,em]=e.split(':').map(Number); if(isNaN(sh)||isNaN(eh)) return r; let c=sh*60+sm; const stop=eh*60+em; while(c<stop){ const ts=`${p2(Math.floor(c/60))}:${p2(c%60)}`; if(TIME_SLOTS.includes(ts)) r.push(ts); c+=30; } return r; }
 
 function toast(msg,type='i'){
@@ -1487,8 +1486,9 @@ G('navBoard').addEventListener('click',()=>showPage('board'));
 G('navAdmin').addEventListener('click',()=>showPage('admin'));
 G('logoutBtn').addEventListener('click',doLogout);
 G('viewDate').addEventListener('change',updateBoard);
-G('btnAM').addEventListener('click',()=>{ boardView='am'; G('btnAM').className='btn bg bsm'; G('btnPM').className='btn bgh bsm'; updateBoard(); });
-G('btnPM').addEventListener('click',()=>{ boardView='pm'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bg bsm'; updateBoard(); });
+G('btnAM').addEventListener('click',()=>{ boardView='am'; G('btnAM').className='btn bg bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bgh bsm'; updateBoard(); });
+G('btnPM').addEventListener('click',()=>{ boardView='pm'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bg bsm'; G('btnEV').className='btn bgh bsm'; updateBoard(); });
+G('btnEV').addEventListener('click',()=>{ boardView='ev'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bg bsm'; updateBoard(); });
 G('addRoomBtn').addEventListener('click',()=>{
   const n=V('newRoomName'); if(!n){ toast('請輸入琴房名稱','e'); return; }
   if(rooms.includes(n)){ toast('名稱已存在','e'); return; }
