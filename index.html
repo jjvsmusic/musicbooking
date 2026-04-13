@@ -283,11 +283,12 @@ tbody td:last-child,thead th:last-child{border-right:none}
         <span class="txs txm">日期</span>
         <input type="date" id="viewDate" class="date-input">
         <span id="dayDisplay" class="day-badge"></span>
-        <div style="display:flex;gap:4px">
-          <button class="btn bg bsm" id="btnAM">☀ 上午 08–13</button>
-          <button class="btn bgh bsm" id="btnPM">🌆 下午 13–17:30</button>
-          <button class="btn bgh bsm" id="btnEV">🌙 放學後 17:30–21:30</button>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn bg bsm" id="btnAM">☀ 上午</button>
+          <button class="btn bgh bsm" id="btnPM">🌆 下午</button>
+          <button class="btn bgh bsm" id="btnEV">🌙 放學後</button>
         </div>
+        <span id="viewRangeLabel" class="txs txm" style="white-space:nowrap">08:00–13:00</span>
         <div class="legend">
           <div class="leg"><div class="ldot" style="background:var(--blue2)"></div>學生預約</div>
           <div class="leg"><div class="ldot" style="background:var(--pur2)"></div>教師預約</div>
@@ -1486,9 +1487,9 @@ G('navBoard').addEventListener('click',()=>showPage('board'));
 G('navAdmin').addEventListener('click',()=>showPage('admin'));
 G('logoutBtn').addEventListener('click',doLogout);
 G('viewDate').addEventListener('change',updateBoard);
-G('btnAM').addEventListener('click',()=>{ boardView='am'; G('btnAM').className='btn bg bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bgh bsm'; updateBoard(); });
-G('btnPM').addEventListener('click',()=>{ boardView='pm'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bg bsm'; G('btnEV').className='btn bgh bsm'; updateBoard(); });
-G('btnEV').addEventListener('click',()=>{ boardView='ev'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bg bsm'; updateBoard(); });
+G('btnAM').addEventListener('click',()=>{ boardView='am'; G('btnAM').className='btn bg bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bgh bsm'; G('viewRangeLabel').textContent='08:00–13:00'; updateBoard(); });
+G('btnPM').addEventListener('click',()=>{ boardView='pm'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bg bsm'; G('btnEV').className='btn bgh bsm'; G('viewRangeLabel').textContent='13:00–17:30'; updateBoard(); });
+G('btnEV').addEventListener('click',()=>{ boardView='ev'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bg bsm'; G('viewRangeLabel').textContent='17:30–21:30'; updateBoard(); });
 G('addRoomBtn').addEventListener('click',()=>{
   const n=V('newRoomName'); if(!n){ toast('請輸入琴房名稱','e'); return; }
   if(rooms.includes(n)){ toast('名稱已存在','e'); return; }
@@ -1548,3 +1549,4 @@ async function appBoot(){
 </script>
 </body>
 </html>
+
