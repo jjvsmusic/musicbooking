@@ -105,11 +105,13 @@ nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shado
 .table-outer{border-radius:12px;border:none;overflow:hidden;background:var(--bg2);box-shadow:var(--sh);}
 .table-scroll{overflow:auto; max-height:68vh;}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
-thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
-tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
+thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:6px 2px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03);width:64px;min-width:64px;max-width:64px}
+tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px;width:64px;min-width:64px;max-width:64px}
 tbody tr:last-child td{border-bottom:none}
 tbody td:last-child,thead th:last-child{border-right:none}
-.rl{background:var(--bg3);position:sticky;left:0;z-index:11;min-width:96px;width:96px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 5px;vertical-align:middle}
+.rl{background:var(--bg3);position:sticky;left:0;z-index:11;min-width:72px;width:72px;max-width:72px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 4px;vertical-align:middle;word-break:break-all;white-space:normal;line-height:1.3}
+.rl-num{display:block;font-size:.82rem;font-weight:700;line-height:1.2}
+.rl-name{display:block;font-size:.62rem;font-weight:400;color:var(--tx3);word-break:break-all;white-space:normal;line-height:1.2}
 thead th.rl { z-index:12; }
 
 /* ── SLOT ── */
@@ -948,7 +950,7 @@ function initUI(){
 }
 function rebuildHeader(){
   const h=G('timeHeader'); if(!h) return;
-  h.innerHTML='<th class="rl">琴房</th>'+getVis().map(t=>`<th style="color:var(--red2);font-weight:500">${t}</th>`).join('');
+  h.innerHTML='<th class="rl" style="width:72px;min-width:72px;max-width:72px">琴房</th>'+getVis().map(t=>`<th style="color:var(--red2);font-weight:500;width:64px;min-width:64px;max-width:64px">${t}</th>`).join('');
 }
 function initAdminUI(){
   refreshRoomGrid();
@@ -1123,7 +1125,15 @@ function updateBoard(){
 
     rooms.forEach(room=>{
       const tr=document.createElement('tr');
-      const rl=document.createElement('td'); rl.className='rl'; rl.textContent=room; tr.appendChild(rl);
+      const rl=document.createElement('td'); rl.className='rl';
+      // 分析琴房名稱：嘗試拆分為「數字/編號」與「說明文字」兩部分
+      const rmatch=room.match(/^([A-Z]?\d+[A-Z]?)(.*)/);
+      if(rmatch&&rmatch[2].trim()){
+        rl.innerHTML=`<span class="rl-num">${esc(rmatch[1])}</span><span class="rl-name">${esc(rmatch[2].trim())}</span>`;
+      } else {
+        rl.textContent=room;
+      }
+      tr.appendChild(rl);
 
       vis.forEach(time=>{
         const td=document.createElement('td');
