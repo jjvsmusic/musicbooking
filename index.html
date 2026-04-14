@@ -838,7 +838,17 @@ function doLogin(){
 }
 function restoreSession(){
   const name=ls('jj_curUser');
-  if(!name||!users[name]){ lsd('jj_curUser'); return; }
+  if(!name) return;
+  // 若 users 物件中沒有此帳號（可能 Firebase 尚未同步），嘗試從 localStorage 補回
+  if(!users[name]){
+    const localUsers=ls('jj_users');
+    if(localUsers&&localUsers[name]){
+      users=localUsers;
+      if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
+    } else {
+      lsd('jj_curUser'); return;
+    }
+  }
   enterApp(name); checkNotifs();
 }
 function enterApp(name){
@@ -854,6 +864,7 @@ function enterApp(name){
   G('boardPage').classList.add('active'); G('adminPage').classList.remove('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
   G('viewDate').value=todayStr();
+  autoSetBoardView();
   initUI(); updateBoard();
   if(isAdmin) initAdminUI();
   // Firebase real-time listeners
@@ -1160,7 +1171,12 @@ function updateBoard(){
           else {
             slot.className='slot sf';
             slot.innerHTML='<span style="font-size:.9rem">＋</span>';
-            slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } if(!isAdmin) openBookModal(room,time,null); });
+            slot.addEventListener('click',()=>{
+              if(!curUser){ openLoginModal(); return; }
+              // 管理員點擊空格：直接開啟代填預約視窗
+              if(isAdmin){ openAdminWriteModal(ds,room,time,null); return; }
+              openBookModal(room,time,null);
+            });
             if(isAdmin){
               const awBtn=document.createElement('button');
               awBtn.innerHTML='👤';
