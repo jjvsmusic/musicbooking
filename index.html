@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -39,6 +38,7 @@ function initFirebase(){
   }
 }
 
+// Expose Firebase helpers to main script
 window.__fb = {
   set:    (path,val)   => FB_READY ? set(ref(db,path),val)   : Promise.resolve(),
   get:    (path)       => FB_READY ? get(ref(db,path)).then(s=>s.val()) : Promise.resolve(null),
@@ -101,16 +101,15 @@ nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shado
 .leg{display:flex;align-items:center;gap:5px;font-size:.65rem;color:var(--tx3)}
 .ldot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 
-/* ── TABLE (含凍結表頭修改) ── */
+/* ── TABLE ── */
 .table-outer{border-radius:12px;border:none;overflow:hidden;background:var(--bg2);box-shadow:var(--sh);}
-.table-scroll{overflow:auto; max-height:calc(100vh - 170px);}
+.table-scroll{overflow-x:auto}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
-thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center}
+thead th{background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center}
 tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
 tbody tr:last-child td{border-bottom:none}
 tbody td:last-child,thead th:last-child{border-right:none}
 .rl{background:var(--bg3);position:sticky;left:0;z-index:100;min-width:96px;width:96px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 5px;vertical-align:middle}
-thead th.rl{z-index:110;}
 
 /* ── SLOT ── */
 .cell{position:relative;width:100%;height:100%;min-height:52px;display:flex;align-items:stretch}
@@ -120,6 +119,7 @@ thead th.rl{z-index:110;}
 .st{background:linear-gradient(135deg,var(--pur),var(--pur2));color:#fff;border:none}
 .sx{background:rgba(212,175,55,.08);border:1.5px dashed rgba(212,175,55,.5);color:var(--gold2)}.sx:hover{background:rgba(212,175,55,.16)}
 .sk{background:repeating-linear-gradient(45deg,var(--bg3),var(--bg3) 8px,var(--bg4) 8px,var(--bg4) 16px);color:var(--tx2);border:1px solid var(--bd2)}
+/* reserved = fixed slot reserved for a named person, but can be booked day-before by others */
 .sr{background:rgba(212,175,55,.04);border:1.5px solid rgba(212,175,55,.3);color:var(--gold3)}
 .past{opacity:.4;pointer-events:none!important;cursor:default!important}
 .sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%;line-height:1.3}
@@ -127,6 +127,8 @@ thead th.rl{z-index:110;}
 .fhint{position:absolute;bottom:2px;right:3px;font-size:.54rem;color:rgba(212,175,55,.5);pointer-events:none}
 .qdel{display:none;position:absolute;top:3px;right:3px;background:var(--red);color:#fff;border:none;border-radius:0 5px 0 5px;width:18px;height:18px;font-size:.7rem;cursor:pointer;z-index:20;line-height:18px;text-align:center;padding:0;font-weight:700}
 .is-admin .qdel{display:block}
+.qedit{display:none;position:absolute;top:3px;left:3px;background:var(--blue);color:#fff;border:none;border-radius:5px 0 5px 0;width:18px;height:18px;font-size:.65rem;cursor:pointer;z-index:20;line-height:18px;text-align:center;padding:0;}
+.is-admin .qedit{display:block}
 
 /* ── ADMIN GRID ── */
 .agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
@@ -216,6 +218,7 @@ thead th.rl{z-index:110;}
 .llogo p{font-size:.71rem;color:var(--tx3)}
 .ldiv{height:1px;background:var(--bd);margin:18px 0}
 .pn{background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.28);border-radius:8px;padding:12px;font-size:.76rem;color:var(--gold3)}
+/* firebase setup notice */
 .fbsetup{background:rgba(28,111,214,.08);border:1px solid rgba(28,111,214,.3);border-radius:8px;padding:12px;font-size:.75rem;color:var(--blue2);margin-bottom:14px;line-height:1.6}
 
 /* ── TOAST ── */
@@ -270,6 +273,7 @@ thead th.rl{z-index:110;}
   <div class="container">
     <div id="boardPage" class="page active">
       <div id="rulesNotice" class="hidden" style="background:rgba(212,175,55,.06);border:1px solid rgba(212,175,55,.22);border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px">
+  
         <span style="font-size:1rem;flex-shrink:0;margin-top:1px">📋</span>
         <div>
           <div style="font-size:.72rem;color:var(--gold);font-weight:600;margin-bottom:4px;font-family:'Noto Serif TC',serif">預約規則說明</div>
@@ -301,6 +305,7 @@ thead th.rl{z-index:110;}
 
     <div id="adminPage" class="page">
       <div class="agrid">
+        
         <div class="acard">
           <h3>📋 預約規則說明管理</h3>
           <p class="txs txm" style="margin-bottom:6px">此說明將顯示於預約看板上方，供所有人閱覽。</p>
@@ -320,6 +325,7 @@ thead th.rl{z-index:110;}
           <h3>📋 批量排課與封鎖</h3>
           <div class="mbt2"><button id="modeFixed" class="mbtbtn active" data-mode="fixed">📌 每週固定排課</button><button id="modeLock" class="mbtbtn" data-mode="lock">🚫 封鎖時段</button></div>
           <div class="fg"><label class="fl" id="schedLabel">排課主題 / 對象</label><input id="setTeacher" class="fi" placeholder="例：王老師鋼琴課  或  場地維護"></div>
+     
           <div class="fg"><label class="fl">備注（選填）</label><input id="setRemark" class="fi" placeholder="例：請勿移動樂器"></div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用琴房</span><button class="btn bgh bsm" data-togall="adminRoom" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminRoomGrid" class="cgrid"></div></div></div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用星期</span><button class="btn bgh bsm" data-togall="adminDay" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminDayGrid" class="cgrid"></div></div></div>
@@ -332,6 +338,7 @@ thead th.rl{z-index:110;}
         </div>
         <div class="acard">
           <h3>👥 成員管理</h3>
+         
           <div>
             <div class="fl" style="margin-bottom:8px">新增成員</div>
             <div class="flex gap8" style="margin-bottom:6px">
@@ -353,12 +360,14 @@ thead th.rl{z-index:110;}
           <div>
             <div class="fl" style="margin-bottom:6px">批次匯入（每行一姓名）</div>
             <textarea id="importList" class="fta" rows="3" placeholder="王小明&#10;李美玲&#10;張大衛"></textarea>
+    
             <div class="flex gap8 mt8">
               <select id="importType" class="fs" style="width:110px">
                 <option value="student">學生</option>
                 <option value="teacher">教師</option>
                 <option value="admin">管理員</option>
               </select>
+       
               <select id="importClass" class="fs flex1"><option value="未分班">未分班</option></select>
               <button class="btn bb bsm" id="importBtn">批次匯入</button>
             </div>
@@ -511,6 +520,7 @@ thead th.rl{z-index:110;}
 // ═══════════════════════════════════
 let FB = null;
 let fbMode = false;
+// true = firebase, false = localStorage
 
 window.__fbReady = function(db){
   FB = window.__fb;
@@ -521,6 +531,7 @@ window.__fbReady = function(db){
   } else {
     setSyncUI(true);
   }
+  // Now boot the app
   appBoot();
 };
 
@@ -557,39 +568,46 @@ function lsd(k){ localStorage.removeItem(k); }
 
 let rooms   = ls('jj_rooms') || DEFAULT_ROOMS;
 let users   = ls('jj_users') || {};
-let classes = ls('jj_classes') || ['未分班'];
+let classes = ls('jj_classes') || ['未分班'];  // student class groups
 let sysData = ls('jj_data')  || {};
 let logs    = ls('jj_logs')  || [];
 let notifs  = ls('jj_notifs')|| {};
 
+// Ensure admin
 if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
-
+// Save helpers (localStorage + firebase)
 async function saveRooms(){ lss('jj_rooms',rooms); if(fbMode) await FB.set('rooms',rooms); }
 async function saveUsers(){ lss('jj_users',users); if(fbMode) await FB.set('users',users); }
 async function saveClasses(){ lss('jj_classes',classes); if(fbMode) await FB.set('classes',classes); }
 async function saveData(){  lss('jj_data',sysData);if(fbMode) await FB.set('sysData',sysData); }
 async function saveLogs(){  lss('jj_logs',logs); if(fbMode) await FB.set('logs',logs.slice(0,200)); }
 async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('notifs',notifs); }
-
 // ═══════════════════════════════════
 // AUTO CLEANUP (滾動式清理)
 // ═══════════════════════════════════
+// 清理設定
 const CLEANUP_KEEP_LOGS     = 150;
-const CLEANUP_KEEP_DAYS_LOG = 60;
+// 保留最新 N 筆日誌
+const CLEANUP_KEEP_DAYS_LOG = 60;    // 保留 60 天內的日誌
 const CLEANUP_KEEP_DAYS_DATA= 30;
-const CLEANUP_INTERVAL_MS   = 6*60*60*1000;
+// 清除超過 30 天前的已過期預約資料（保留固定排課 dow keys）
+const CLEANUP_INTERVAL_MS   = 6*60*60*1000; // 每 6 小時執行一次清理
 
 let lastCleanup = ls('jj_lastCleanup') || 0;
 function runRollingCleanup(force=false){
   const now=Date.now();
-  if(!force && now-lastCleanup < CLEANUP_INTERVAL_MS) return;
+  if(!force && now-lastCleanup < CLEANUP_INTERVAL_MS) return; // not yet due
   let cleaned=0;
+// 1. 清理 sysData：移除超過 CLEANUP_KEEP_DAYS_DATA 天前的日期 key 下的 book/lock 資料
+  //    (0~6 = 固定排課 dow keys，永遠保留)
   const cutoffDate=new Date();
   cutoffDate.setDate(cutoffDate.getDate()-CLEANUP_KEEP_DAYS_DATA);
   const cutoffStr=dateStr(cutoffDate);
   Object.keys(sysData).forEach(k=>{
+    // skip dow keys (single digit 0-6)
     if(/^\d$/.test(k)) return;
     if(k < cutoffStr){
+      // Keep only fixed type entries; remove book/lock
       const dateData=sysData[k];
       let hasFixed=false;
       Object.keys(dateData||{}).forEach(room=>{
@@ -601,13 +619,17 @@ function runRollingCleanup(force=false){
             cleaned++;
           }
         });
+        // Remove empty room object
         if(Object.keys(dateData[room]||{}).length===0) delete dateData[room];
       });
+      // Remove empty date key if no fixed data
       if(!hasFixed || Object.keys(sysData[k]||{}).length===0) delete sysData[k];
     }
   });
 
+  // 2. 清理 logs：保留最新 CLEANUP_KEEP_LOGS 筆 且 60 天內的記錄
   const logCutoff=new Date(); logCutoff.setDate(logCutoff.getDate()-CLEANUP_KEEP_DAYS_LOG);
+  const logCutoffStr=logCutoff.toLocaleDateString('zh-TW');
   const beforeCount=logs.length;
   logs=logs.filter(l=>{ if(!l||!l.t) return false; return true; }).slice(0,CLEANUP_KEEP_LOGS);
   const logsCleaned=beforeCount-logs.length;
@@ -621,16 +643,19 @@ function runRollingCleanup(force=false){
   lss('jj_lastCleanup',now);
 }
 
+// Schedule periodic cleanup
 function scheduleCleanup(){
-  runRollingCleanup();
+  runRollingCleanup(); // run on boot
   setInterval(()=>runRollingCleanup(), CLEANUP_INTERVAL_MS);
 }
 
 function addLog(e){ logs.unshift(e); if(logs.length>500) logs.pop(); saveLogs(); }
 
+// Load from Firebase on boot
 async function loadFromFirebase(){
   if(!fbMode) return;
-  const r=await FB.get('rooms');   if(r) { rooms=r; lss('jj_rooms',rooms); }
+  const r=await FB.get('rooms');
+  if(r) { rooms=r; lss('jj_rooms',rooms); }
   const u=await FB.get('users');   if(u) { users=u; lss('jj_users',users); }
   const cl=await FB.get('classes');if(cl&&Array.isArray(cl)){ classes=cl; lss('jj_classes',classes); }
   const s=await FB.get('sysData'); if(s) { sysData=s; lss('jj_data',sysData); }
@@ -665,7 +690,9 @@ function getVis(){
   if(boardView==='pm') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h>=13)&&(h<17||(h===17&&m===0)); });
   return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h===17&&m>=30)||h===18||h===19||h===20||(h===21&&m===0); });
 }
-function genSlots(s,e){ const r=[]; const [sh,sm]=s.split(':').map(Number); const [eh,em]=e.split(':').map(Number); if(isNaN(sh)||isNaN(eh)) return r; let c=sh*60+sm; const stop=eh*60+em; while(c<stop){ const ts=`${p2(Math.floor(c/60))}:${p2(c%60)}`; if(TIME_SLOTS.includes(ts)) r.push(ts); c+=30; } return r; }
+function genSlots(s,e){ const r=[];
+  const [sh,sm]=s.split(':').map(Number); const [eh,em]=e.split(':').map(Number); if(isNaN(sh)||isNaN(eh)) return r; let c=sh*60+sm; const stop=eh*60+em; while(c<stop){ const ts=`${p2(Math.floor(c/60))}:${p2(c%60)}`; if(TIME_SLOTS.includes(ts)) r.push(ts); c+=30; } return r;
+}
 
 function toast(msg,type='i'){
   const c=G('toastWrap'); const t=document.createElement('div');
@@ -700,28 +727,35 @@ function showMErr(id,msg){ const e=G(id); e.textContent=msg; e.classList.remove(
 G('overlay').addEventListener('click',()=>closeModals());
 document.addEventListener('click',ev=>{
   if(ev.target.hasAttribute('data-close')) closeModals();
+  // toggle-all
   const ta=ev.target.closest('[data-togall]');
   if(ta){ const n=ta.dataset.togall; const inp=QA(`input[name="${n}"]`); const all=inp.every(i=>i.checked); inp.forEach(i=>i.checked=!all); }
+  // mode buttons
   const mb=ev.target.closest('[data-mode]');
   if(mb) setMode(mb.dataset.mode);
 
+  // edit class tag
   const ec=ev.target.closest('[data-eclass]');
   if(ec){
     const oldCls=ec.dataset.eclass;
     const newCls=prompt('請輸入「' + oldCls + '」的新名稱：', oldCls);
+    
     if(newCls && newCls.trim() && newCls.trim() !== oldCls){
        const trimmed = newCls.trim();
        if(classes.includes(trimmed)){
            toast('班級名稱已存在','e');
            return;
        }
+       
        const idx = classes.indexOf(oldCls);
        if(idx > -1) classes[idx] = trimmed;
+       
        Object.keys(users).forEach(u => {
            if((users[u].class || '未分班') === oldCls) {
                users[u].class = trimmed;
            }
        });
+       
        saveClasses(); 
        saveUsers(); 
        refreshUserList(); 
@@ -732,34 +766,8 @@ document.addEventListener('click',ev=>{
 });
 
 // ═══════════════════════════════════
-// SSO & AUTH
+// AUTH
 // ═══════════════════════════════════
-function checkSSOLogin() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const ssoData = urlParams.get('sso');
-  
-  if (ssoData) {
-    try {
-      const userData = JSON.parse(decodeURIComponent(atob(ssoData)));
-      
-      lss('jj_curUser', userData.name);
-      
-      let role = userData.role === 'master' ? 'admin' : (userData.role === 'teacher' ? 'teacher' : 'student');
-      if (!users[userData.name]) {
-          users[userData.name] = { pwd: '000', type: role, class: '未分班' };
-          saveUsers();
-      }
-      
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      return userData.name;
-    } catch (e) {
-      console.error("SSO 登入解析失敗", e);
-    }
-  }
-  return null;
-}
-
 function openLoginModal(){
   hide('loginErr');
   G('loginName').value=''; G('loginPwd').value='';
@@ -799,18 +807,17 @@ function enterApp(name){
   if(isAdmin){ show('navAdmin'); document.getElementById('mainBody').classList.add('is-admin'); G('adminBadge').style.display='inline'; }
   else { hide('navAdmin'); document.getElementById('mainBody').classList.remove('is-admin'); G('adminBadge').style.display='none'; }
   show('logoutBtn');
-  G('boardPage').classList.add('active');
-  G('adminPage').classList.remove('active');
+  G('boardPage').classList.add('active'); G('adminPage').classList.remove('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
   G('viewDate').value=todayStr();
   initUI(); updateBoard();
   if(isAdmin) initAdminUI();
+  // Firebase real-time listeners
   startListeners();
 }
 function doLogout(){
   lsd('jj_curUser'); stopListeners();
-  curUser='';
-  isAdmin=false; forcePwdChange=false;
+  curUser=''; isAdmin=false; forcePwdChange=false;
   document.getElementById('mainBody').classList.remove('is-admin');
   G('adminBadge').style.display='none'; G('userPill').style.display='none';
   hide('navAdmin'); hide('logoutBtn'); show('navLoginBtn');
@@ -891,7 +898,9 @@ function rebuildHeader(){
 function initAdminUI(){
   refreshRoomGrid();
   renderRoomSortList(); refreshUserList(); refreshAdminLog(); updateCleanupStatus();
+  // Load current rules into textarea
   const rules=ls('jj_rules')||''; const ra=G('adminRulesText'); if(ra) ra.value=rules;
+  // Init class dropdowns visibility
   const nt=G('newMemberType'); if(nt) G('newMemberClassWrap').style.display=nt.value==='student'?'flex':'none';
 }
 
@@ -910,6 +919,7 @@ function refreshRoomGrid(){
 // ═══════════════════════════════════
 function renderRoomSortList(){
   const el=G('roomSortList'); if(!el) return;
+  // Remove ALL old listeners by replacing the element
   const clone=el.cloneNode(false);
   el.parentNode.replaceChild(clone,el);
   const nel=G('roomSortList');
@@ -926,6 +936,7 @@ function renderRoomSortList(){
       <button class="btn bgh bsm hidden" style="padding:3px 7px;font-size:.68rem;color:var(--grn2)" data-a="save" data-i="${i}" id="rsb${i}">✓</button>
       <button class="btn br bsm" style="padding:3px 7px;font-size:.68rem" data-a="del" data-i="${i}">✕</button>
     </div>`).join('');
+  // Attach click delegation
   nel.addEventListener('click', ev=>{
     const btn=ev.target.closest('[data-a]'); if(!btn) return;
     ev.stopPropagation();
@@ -942,6 +953,7 @@ function renderRoomSortList(){
     }
   });
 
+  // Drag
   nel.addEventListener('dragstart',ev=>{ dragSrcIdx=+ev.target.closest('.rsi').dataset.idx; ev.dataTransfer.effectAllowed='move'; ev.target.closest('.rsi').classList.add('dragging'); });
   nel.addEventListener('dragover', ev=>{ ev.preventDefault(); ev.target.closest('.rsi')?.classList.add('drag-over'); });
   nel.addEventListener('dragleave',ev=>{ ev.target.closest('.rsi')?.classList.remove('drag-over'); });
@@ -988,6 +1000,7 @@ function updateBoard(){
   const maxD=maxDateStr();
   const vis=getVis();
   const yesterday=yesterdayOf(ds);
+
   rooms.forEach(room=>{
     const tr=document.createElement('tr');
     const rl=document.createElement('td'); rl.className='rl'; rl.textContent=room; tr.appendChild(rl);
@@ -1010,14 +1023,19 @@ function updateBoard(){
           slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
           if(isAdmin&&!isPast) cell.appendChild(makeQdel(ds,room,time));
         } else if(bookD.type==='fixed'){
+          // CSV-imported fixed with date — still bookable
           buildFixedSlot(slot,cell,bookD,ds,room,time,isPast,outRange,yesterday,today);
         } else {
+          // Regular booking
           const isT=users[bookD.name]?.type==='teacher'||users[bookD.name]?.type==='admin';
           slot.className='slot '+(isT?'st':'sb')+(isPast?' past':'');
           slot.innerHTML=`<span class="sn">${esc(bookD.name)}</span><span class="snote">${esc(bookD.note||'')}</span>`;
           if(!isPast&&(isAdmin||bookD.name===curUser))
             slot.addEventListener('click',()=>openDeleteModal(ds,room,time));
-          if(!isPast) cell.appendChild(makeQdel(ds,room,time));
+          if(!isPast) {
+             cell.appendChild(makeQdel(ds,room,time));
+             if(isAdmin) cell.appendChild(makeQedit(ds,room,time,bookD));
+          }
         }
       } else if(fixedD&&fixedD.type==='fixed'){
         buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
@@ -1037,6 +1055,7 @@ function updateBoard(){
   });
 }
 
+// ── FIXED SLOT RENDERING with booking rules ──
 function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday,today){
   const rawTeacher=fixedD.teacher||fixedD.note||'';
   const teacherName=rawTeacher.split('・')[0].trim();
@@ -1047,7 +1066,7 @@ function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday
   const withinWindow=(actualToday>=allowedFromDate);
 
   let canBook=false;
-  if(!curUser){ canBook=false; }
+  if(!curUser){ canBook=false; } 
   else if(isAdmin){ canBook=true; }
   else if(isNameMatch){ canBook=true; }
   else if(withinWindow&&!outRange){ canBook=true; }
@@ -1079,6 +1098,17 @@ function makeQdel(key,room,time){
   });
   return btn;
 }
+
+function makeQedit(key,room,time,d){
+  const btn=document.createElement('button');
+  btn.className='qedit'; btn.textContent='✏️';
+  btn.addEventListener('click',ev=>{
+    ev.stopPropagation();
+    openEditBookModal(key,room,time,d);
+  });
+  return btn;
+}
+
 function adminQuickDel(key,room,time){
   if(!isAdmin) return;
   const d=sysData[key]?.[room]?.[time];
@@ -1099,6 +1129,7 @@ function openBookModal(room,startTime,fixedD){
   pending={room,startTime};
   const ds=G('viewDate').value;
   const dow=new Date(ds+'T00:00:00').getDay();
+  // Fixed notice
   const fd=fixedD||(sysData[String(dow)]?.[room]?.[startTime]);
   const isFix=fd&&fd.type==='fixed';
   toggle('fixedNotice',isFix);
@@ -1109,6 +1140,7 @@ function openBookModal(room,startTime,fixedD){
     <div class="ir"><span class="ila">日期</span><span class="ilv">${ds}（週${DAYS[dow]}）</span></div>
     <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(curUser)}</span></div>
     <div class="ir"><span class="ila">身份</span><span class="ilv">${{admin:'管理員',teacher:'教師',student:'學生'}[users[curUser]?.type]||'學生'}</span></div>`;
+  // Time grid
   const tg=G('bookTimeGrid'); tg.innerHTML='';
   const now=new Date(); const today=todayStr();
   const dowKey=String(dow);
@@ -1117,6 +1149,7 @@ function openBookModal(room,startTime,fixedD){
     const occ=bD&&bD.type!=='fixed';
     const [hh,mm]=ts.split(':').map(Number);
     const past=ds===today&&(hh<now.getHours()||(hh===now.getHours()&&mm<=now.getMinutes()));
+    // Check booking restriction for each fixed slot
     const fixTs=sysData[dowKey]?.[room]?.[ts]||sysData[ds]?.[room]?.[ts];
     let restricted=false;
     if(!isAdmin&&fixTs&&fixTs.type==='fixed'){
@@ -1226,7 +1259,6 @@ G('confirmAdminDelSetBtn').addEventListener('click',()=>{
   delete sysData[key][room][time]; saveData(); closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
 });
-
 // ═══════════════════════════════════
 // EDIT BOOKING (Admin)
 // ═══════════════════════════════════
@@ -1237,6 +1269,7 @@ function openEditBookModal(dateKey,room,time,d){
     <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
     <div class="ir"><span class="ila">日期/時段</span><span class="ilv">${esc(dl)} ${time}</span></div>
     <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(d.name)}</span></div>`;
+  // Pre-fill note
   const note=d.note||'';
   let selectVal='自主練習';
   if(note.startsWith('主副修課')) selectVal='主副修課';
@@ -1265,7 +1298,6 @@ G('confirmEditBookBtn').addEventListener('click',()=>{
   if(isAdmin) refreshAdminLog();
   toast('預約備注已修改','s');
 });
-
 // ═══════════════════════════════════
 // SCHEDULE SETTINGS
 // ═══════════════════════════════════
@@ -1290,17 +1322,17 @@ G('saveSettingBtn').addEventListener('click',()=>{
   } else {
     const fv=V('lockFrom'), tv=V('lockTo'); let dates=[];
     if(fv&&tv){ let c=new Date(fv+'T00:00:00');
-      const e=new Date(tv+'T00:00:00'); while(c<=e){ if(dys.includes(c.getDay())) dates.push(dateStr(c)); c.setDate(c.getDate()+1); } }
+    const e=new Date(tv+'T00:00:00'); while(c<=e){ if(dys.includes(c.getDay())) dates.push(dateStr(c)); c.setDate(c.getDate()+1); } }
     else { for(let i=0;i<56;i++){ const d2=new Date(); d2.setDate(d2.getDate()+i);
-      if(dys.includes(d2.getDay())) dates.push(dateStr(d2)); } }
-    if(!dates.length){ toast('沒有符合條件的日期','e'); return; }
+    if(dys.includes(d2.getDay())) dates.push(dateStr(d2)); } }
+    if(!dates.length){ toast('沒有符合條件的日期','e'); return;
+    }
     dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; rms.forEach(r=>{ if(!sysData[ds][r]) sysData[ds][r]={}; tms.forEach(t=>{ sysData[ds][r][t]={note:label,remark,type:'lock'}; }); }); });
     addLog({t:new Date().toLocaleString('zh-TW'),msg:`封鎖: ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
     toast(`封鎖已套用（${dates.length}天）`,'s');
   }
   saveData(); updateBoard(); refreshAdminLog();
 });
-
 // ═══════════════════════════════════
 // MEMBERS
 // ═══════════════════════════════════
@@ -1330,6 +1362,7 @@ G('importBtn').addEventListener('click',()=>{
   saveUsers(); refreshUserList(); G('importList').value=''; toast(`匯入完成：新增 ${count} 位成員`,'s');
 });
 function refreshClassSelects(){
+  // Rebuild all class dropdowns
   const opts = classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   ['newMemberClass','importClass'].forEach(id=>{ const el=G(id); if(el) el.innerHTML=opts; });
 }
@@ -1347,6 +1380,9 @@ function renderClassTags(){
 function refreshUserList(){
   const lbl={admin:'管理員',teacher:'教師',student:'學生'};
   const groups={admin:[],teacher:{}};
+  // Group students by class
+  classes.forEach(c=>{ groups.teacher; });
+  // ensure admin/teacher arrays exist
   const adminList=[], teacherList=[];
   const studentByClass={};
   classes.forEach(c=>{ studentByClass[c]=[]; });
@@ -1371,18 +1407,21 @@ function refreshUserList(){
         ${isStudent?`<select class="fs" data-ua="chgclass" data-un="${esc(u)}" style="font-size:.66rem;padding:2px 5px;height:auto;max-width:90px">${classes.map(c=>`<option value="${esc(c)}"${(users[u].class||'未分班')===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:''}
         <button class="btn bgh bsm" data-ua="reset" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">重置密碼</button>
         ${u!==ADMIN_NAME?`<button class="btn br bsm" data-ua="del" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">刪除</button>`:''}
+    
       </div>
     </div>`;
   }
 
+  // Admin
   const aEl=G('listAdmin');
   if(aEl) aEl.innerHTML=adminList.length?adminList.map(u=>memberRow(u,false)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無管理員</div>`;
   const aC=G('adminCount'); if(aC) aC.textContent=adminList.length;
 
+  // Teacher
   const tEl=G('listTeacher');
   if(tEl) tEl.innerHTML=teacherList.length?teacherList.map(u=>memberRow(u,false)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無教師</div>`;
   const tC=G('teacherCount'); if(tC) tC.textContent=teacherList.length;
-  
+  // Students by class
   const scg=G('studentClassGroups'); if(!scg) return;
   const totalStudents=Object.values(studentByClass).reduce((s,a)=>s+a.length,0);
   scg.innerHTML=classes.map(cls=>{
@@ -1395,6 +1434,7 @@ function refreshUserList(){
         </div>
         <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
           <button class="btn bgh bsm" data-cls-selall="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">全選</button>
+         
           <button class="btn br bsm" data-cls-delsel="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">刪除已選</button>
         </div>
       </summary>
@@ -1404,11 +1444,14 @@ function refreshUserList(){
     </details>`;
   }).join('');
 
+  // Also refresh class selects
   refreshClassSelects();
   renderClassTags();
 }
 
+// Event delegation for member actions across all lists
 document.addEventListener('click',ev=>{
+  // member reset/del
   const btn=ev.target.closest('[data-ua]');
   if(btn && (G('listAdmin')?.contains(btn)||G('listTeacher')?.contains(btn)||G('studentClassGroups')?.contains(btn))){
     const u=btn.dataset.un, a=btn.dataset.ua;
@@ -1416,6 +1459,7 @@ document.addEventListener('click',ev=>{
     if(a==='del') showConfirm(`確定刪除成員「${u}」？`,'',()=>{ delete users[u]; saveUsers(); refreshUserList(); toast('成員已刪除','i'); });
     return;
   }
+  // select all in class
   const sa=ev.target.closest('[data-cls-selall]');
   if(sa){
     const cls=sa.dataset.clsSelall;
@@ -1423,6 +1467,8 @@ document.addEventListener('click',ev=>{
     if(details) details.querySelectorAll('.member-chk').forEach(c=>c.checked=true);
     return;
   }
+  // delete selected in class
+ 
   const ds=ev.target.closest('[data-cls-delsel]');
   if(ds){
     const cls=ds.dataset.clsDelsel;
@@ -1436,6 +1482,7 @@ document.addEventListener('click',ev=>{
     });
     return;
   }
+  // delete class tag
   const dc=ev.target.closest('[data-dclass]');
   if(dc){
     const cls=dc.dataset.dclass;
@@ -1450,20 +1497,22 @@ document.addEventListener('click',ev=>{
   }
 });
 
+// 換班 change handler
 document.addEventListener('change',ev=>{
   const sel=ev.target.closest('[data-ua="chgclass"]'); if(!sel) return;
   const u=sel.dataset.un; if(!u||!users[u]) return;
   const newCls=sel.value;
   users[u].class=newCls; saveUsers(); refreshUserList(); toast(`${u} 已移至「${newCls}」`,'s');
 });
-
 // ═══════════════════════════════════
 // LOG
 // ═══════════════════════════════════
 function refreshAdminLog(){
   const el=G('adminLogList'); if(!el) return;
-  if(!logs.length){ el.innerHTML='<div class="li txm" style="justify-content:center;padding:16px">尚無記錄</div>'; return; }
+  if(!logs.length){ el.innerHTML='<div class="li txm" style="justify-content:center;padding:16px">尚無記錄</div>'; return;
+  }
 
+  // Replace element to clear old listeners
   const clone=el.cloneNode(false);
   el.parentNode.replaceChild(clone,el);
   const nel=G('adminLogList');
@@ -1478,6 +1527,7 @@ function refreshAdminLog(){
           ${bookExists?`<button class="lcb" data-la="edit" data-li="${i}" style="font-size:.65rem;background:rgba(28,111,214,.15);color:var(--blue2);border-color:rgba(28,111,214,.3)">✏ 修改預約</button>`:''}
           ${bookExists?`<button class="lcb" data-la="cancel" data-li="${i}" style="font-size:.65rem">✕ 刪除預約</button>`:''}
           <button class="lcb" data-la="del" data-li="${i}" style="font-size:.65rem;background:rgba(100,100,100,.12);color:var(--tx3);border-color:var(--bd2)">🗑 刪除記錄</button>
+   
         </div>
       </div>
     </div>`;
@@ -1497,9 +1547,11 @@ function refreshAdminLog(){
         toast(bookExists?'預約及日誌已刪除':'日誌已刪除','i');
       });
       return;
+ 
     }
 
     if(la==='cancel'){
+      // Delete booking directly (admin), notify user
       const d=sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime]; if(!d) return;
       showConfirm(`確定取消 ${d.name} 在 ${l.bookRoom} ${l.bookKey} ${l.bookTime} 的預約？`, '將通知預約者', ()=>{
         const reason='管理員由日誌取消';
@@ -1511,6 +1563,7 @@ function refreshAdminLog(){
     }
 
     if(la==='edit'){
+      // Open edit modal for this booking
       const d=sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
       if(!d) return;
       openEditBookModal(l.bookKey,l.bookRoom,l.bookTime,d);
@@ -1528,40 +1581,54 @@ G('importCsvBtn').addEventListener('click',()=>{
   let ok=0,skip=0,errs=[];
   lines.forEach((line,i)=>{
     const p=line.split(',').map(s=>s.trim());
+    // Support both formats:
+    // NEW: type,room,dow,start,end,label,remark,dateFrom,dateTo
+    // OLD (backward compat): room,dow,start,end,label,remark,dateFrom,dateTo
     let type='fixed', room, dowStr, startT, endT, teacher, remark, dateFrom, dateTo;
     if(p[0]==='fixed'||p[0]==='lock'){
       [type,room,dowStr,startT,endT,teacher,remark,dateFrom,dateTo]=p;
     } else {
+      // old format without type → treat as fixed
+      
       [room,dowStr,startT,endT,teacher,remark,dateFrom,dateTo]=p;
       type='fixed';
     }
-    if(!room||!dowStr||!startT||!endT||!teacher){ errs.push(`第${i+1}行欄位不完整`); skip++; return; }
+    if(!room||!dowStr||!startT||!endT||!teacher){ errs.push(`第${i+1}行欄位不完整`); skip++; return;
+    }
     const dow=DOW_MAP[dowStr];
     if(dow===undefined){ errs.push(`第${i+1}行星期「${dowStr}」無法辨識`); skip++; return; }
     const slots=genSlots(startT,endT);
-    if(!slots.length){ errs.push(`第${i+1}行時段無效（${startT}~${endT}）`); skip++; return; }
+    if(!slots.length){ errs.push(`第${i+1}行時段無效（${startT}~${endT}）`); skip++; return;
+    }
     const label=teacher+(remark?'・'+remark:'');
 
     if(type==='lock'){
+      // Lock: always store under date keys (requires date range, or defaults to next 8 weeks)
       let dates=[];
       if(dateFrom&&dateTo){
         let cur=new Date(dateFrom+'T00:00:00'); const end=new Date(dateTo+'T00:00:00');
-        if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return; }
-        while(cur<=end){ if(cur.getDay()===dow) dates.push(dateStr(cur)); cur.setDate(cur.getDate()+1); }
+        if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return;
+        }
+        while(cur<=end){ if(cur.getDay()===dow) dates.push(dateStr(cur)); cur.setDate(cur.getDate()+1);
+        }
       } else {
-        for(let j=0;j<56;j++){ const d2=new Date(); d2.setDate(d2.getDate()+j); if(d2.getDay()===dow) dates.push(dateStr(d2)); }
+        // No date range: apply to next 8 weeks
+        for(let j=0;j<56;j++){ const d2=new Date();
+        d2.setDate(d2.getDate()+j); if(d2.getDay()===dow) dates.push(dateStr(d2)); }
       }
-      if(!dates.length){ errs.push(`第${i+1}行找不到符合的日期`); skip++; return; }
       dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; if(!sysData[ds][room]) sysData[ds][room]={}; slots.forEach(t=>{ sysData[ds][room][t]={note:label,remark:remark||'',type:'lock'}; }); });
     } else {
+      // Fixed
       if(!dateFrom||!dateTo){
         const k=String(dow);
         if(!sysData[k]) sysData[k]={}; if(!sysData[k][room]) sysData[k][room]={};
         slots.forEach(t=>{ sysData[k][room][t]={teacher:label,remark:remark||'',type:'fixed'}; });
       } else {
-        let cur=new Date(dateFrom+'T00:00:00'); const end=new Date(dateTo+'T00:00:00');
+        let cur=new Date(dateFrom+'T00:00:00');
+        const end=new Date(dateTo+'T00:00:00');
         if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return; }
-        while(cur<=end){ if(cur.getDay()===dow){ const ds=dateStr(cur); if(!sysData[ds]) sysData[ds]={}; if(!sysData[ds][room]) sysData[ds][room]={}; slots.forEach(t=>{ sysData[ds][room][t]={teacher:label,remark:remark||'',type:'fixed'}; }); } cur.setDate(cur.getDate()+1); }
+        while(cur<=end){ if(cur.getDay()===dow){ const ds=dateStr(cur);
+        if(!sysData[ds]) sysData[ds]={}; if(!sysData[ds][room]) sysData[ds][room]={}; slots.forEach(t=>{ sysData[ds][room][t]={teacher:label,remark:remark||'',type:'fixed'}; }); } cur.setDate(cur.getDate()+1); }
       }
     }
     ok++;
@@ -1607,7 +1674,6 @@ G('dlTemplateBtn').addEventListener('click',()=>{
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+tpl);
   a.download='琴房課表模板.csv'; a.click();
 });
-
 // ═══════════════════════════════════
 // PAGE SWITCH
 // ═══════════════════════════════════
@@ -1640,6 +1706,7 @@ G('addRoomBtn').addEventListener('click',()=>{
 G('dismissNotifBtn').addEventListener('click',()=>{ notifs[curUser]=[]; saveNotifs(); closeModals(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModals(); });
 
+// Cleanup buttons (admin only)
 document.addEventListener('click',ev=>{
   if(ev.target.id==='clearLogsBtn'){
     showConfirm('確定清空所有日誌？','此操作無法復原',()=>{ logs=[]; saveLogs(); refreshAdminLog(); updateCleanupStatus(); toast('日誌已清空','i'); });
@@ -1648,7 +1715,6 @@ document.addEventListener('click',ev=>{
     runRollingCleanup(true); updateBoard(); refreshAdminLog(); updateCleanupStatus(); toast('已執行資料清理','s');
   }
 });
-
 function updateCleanupStatus(){
   const el=G('cleanupStatus'); if(!el) return;
   const logCount=logs.length;
@@ -1674,60 +1740,21 @@ async function saveRules(){ lss('jj_rules',G('adminRulesText').value);
   if(fbMode) await FB.set('rules',G('adminRulesText').value); }
 
 // ═══════════════════════════════════
-// SSO & APP BOOT
+// BOOT
 // ═══════════════════════════════════
-function checkSSOLogin() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const ssoData = urlParams.get('sso');
-  
-  if (ssoData) {
-    try {
-      const userData = JSON.parse(decodeURIComponent(atob(ssoData)));
-      
-      // 使用琴房系統自己的儲存機制來存入目前登入者
-      lss('jj_curUser', userData.name);
-      
-      // 自動同步教務系統傳來的帳號到琴房系統
-      let role = userData.role === 'master' ? 'admin' : (userData.role === 'teacher' ? 'teacher' : 'student');
-      if (!users[userData.name]) {
-          users[userData.name] = { pwd: '000', type: role, class: '未分班' };
-          saveUsers();
-      }
-      
-      // 清除網址列參數，保持網址乾淨
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      return userData.name;
-    } catch (e) {
-      console.error("SSO 登入解析失敗", e);
-    }
-  }
-  return null;
-}
-
 async function appBoot(){
   if(fbMode) await loadFromFirebase();
+  // Show board for all visitors (no login required)
   const td=todayStr();
   G('viewDate').value=td;
   G('viewDate').min=td;
   rebuildHeader();
   updateBoard();
   loadRulesNotice();
-  
-  // 檢查是否從教務系統 SSO 登入過來
-  const ssoUser = checkSSOLogin();
-  if (ssoUser) {
-     // 直接進入系統主畫面
-     enterApp(ssoUser);
-     checkNotifs();
-  } else {
-     // 沒有 SSO 參數的話，則嘗試讀取本機過去的登入紀錄
-     restoreSession();
-  }
-
+  restoreSession();
   scheduleCleanup();
+  // start rolling cleanup
 }
 </script>
 </body>
 </html>
-```
