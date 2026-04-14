@@ -339,9 +339,49 @@ tbody td:last-child,thead th:last-child{border-right:none}
         <!-- 成員管理 -->
         <div class="acard">
           <h3>👥 成員管理</h3>
-          <div><div class="fl" style="margin-bottom:8px">新增成員</div><div class="flex gap8" style="margin-bottom:8px"><input id="newMemberName" class="fi flex1" placeholder="姓名"><select id="newMemberType" class="fs" style="width:120px"><option value="student">學生</option><option value="teacher">教師</option><option value="admin">管理員</option></select></div><button class="btn bb bsm bfull" id="addMemberBtn">新增成員</button></div>
+          <div>
+            <div class="fl" style="margin-bottom:8px">新增成員</div>
+            <div class="flex gap8" style="margin-bottom:6px">
+              <input id="newMemberName" class="fi flex1" placeholder="姓名">
+              <select id="newMemberType" class="fs" style="width:110px">
+                <option value="student">學生</option>
+                <option value="teacher">教師</option>
+                <option value="admin">管理員</option>
+              </select>
+            </div>
+            <div id="newMemberClassWrap" class="flex gap8" style="margin-bottom:8px">
+              <select id="newMemberClass" class="fs flex1">
+                <option value="未分班">未分班</option>
+              </select>
+            </div>
+            <button class="btn bb bsm bfull" id="addMemberBtn">新增成員</button>
+          </div>
           <div class="sdiv"></div>
-          <div><div class="fl" style="margin-bottom:6px">批次匯入（每行一姓名）</div><textarea id="importList" class="fta" rows="3" placeholder="王小明&#10;李美玲&#10;張大衛"></textarea><div class="flex gap8 mt8"><select id="importType" class="fs flex1"><option value="student">學生（2天）</option><option value="teacher">教師（14天）</option><option value="admin">管理員</option></select><button class="btn bb bsm" id="importBtn">批次匯入</button></div></div>
+          <div>
+            <div class="fl" style="margin-bottom:6px">批次匯入（每行一姓名）</div>
+            <textarea id="importList" class="fta" rows="3" placeholder="王小明&#10;李美玲&#10;張大衛"></textarea>
+            <div class="flex gap8 mt8">
+              <select id="importType" class="fs" style="width:110px">
+                <option value="student">學生</option>
+                <option value="teacher">教師</option>
+                <option value="admin">管理員</option>
+              </select>
+              <select id="importClass" class="fs flex1"><option value="未分班">未分班</option></select>
+              <button class="btn bb bsm" id="importBtn">批次匯入</button>
+            </div>
+          </div>
+          <div class="sdiv"></div>
+          <!-- 班級管理 -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span class="fl">班級管理</span>
+            </div>
+            <div class="flex gap8" style="margin-bottom:6px">
+              <input id="newClassName" class="fi flex1" placeholder="輸入新班級名稱（如：112甲班）">
+              <button class="btn bb bsm" id="addClassBtn">新增班級</button>
+            </div>
+            <div id="classTagList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
+          </div>
           <div class="sdiv"></div>
           <div class="fl" style="margin-bottom:6px">成員列表</div>
           <div style="display:flex;flex-direction:column;gap:8px">
@@ -353,10 +393,8 @@ tbody td:last-child,thead th:last-child{border-right:none}
               <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--pur2);font-weight:500;list-style:none;display:flex;align-items:center;gap:6px">▼ 教師 <span id="teacherCount" class="mbadge mbt" style="font-size:.6rem"></span></summary>
               <div class="slist" id="listTeacher" style="max-height:180px;border:none;border-radius:0;border-top:1px solid var(--bd)"></div>
             </details>
-            <details open style="background:var(--bg4);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
-              <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--blue2);font-weight:500;list-style:none;display:flex;align-items:center;gap:6px">▼ 學生 <span id="studentCount" class="mbadge mbs" style="font-size:.6rem"></span></summary>
-              <div class="slist" id="listStudent" style="max-height:180px;border:none;border-radius:0;border-top:1px solid var(--bd)"></div>
-            </details>
+            <!-- 學生依班級展開，動態產生 -->
+            <div id="studentClassGroups"></div>
           </div>
         </div>
         <!-- 日誌 -->
@@ -540,6 +578,7 @@ function lsd(k){ localStorage.removeItem(k); }
 
 let rooms   = ls('jj_rooms') || DEFAULT_ROOMS;
 let users   = ls('jj_users') || {};
+let classes = ls('jj_classes') || ['未分班'];  // student class groups
 let sysData = ls('jj_data')  || {};
 let logs    = ls('jj_logs')  || [];
 let notifs  = ls('jj_notifs')|| {};
@@ -550,6 +589,7 @@ if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
 // Save helpers (localStorage + firebase)
 async function saveRooms(){ lss('jj_rooms',rooms); if(fbMode) await FB.set('rooms',rooms); }
 async function saveUsers(){ lss('jj_users',users); if(fbMode) await FB.set('users',users); }
+async function saveClasses(){ lss('jj_classes',classes); if(fbMode) await FB.set('classes',classes); }
 async function saveData(){  lss('jj_data',sysData);if(fbMode) await FB.set('sysData',sysData); }
 async function saveLogs(){  lss('jj_logs',logs);   if(fbMode) await FB.set('logs',logs.slice(0,200)); }
 async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('notifs',notifs); }
@@ -626,6 +666,7 @@ async function loadFromFirebase(){
   if(!fbMode) return;
   const r=await FB.get('rooms');   if(r) { rooms=r; lss('jj_rooms',rooms); }
   const u=await FB.get('users');   if(u) { users=u; lss('jj_users',users); }
+  const cl=await FB.get('classes');if(cl&&Array.isArray(cl)){ classes=cl; lss('jj_classes',classes); }
   const s=await FB.get('sysData'); if(s) { sysData=s; lss('jj_data',sysData); }
   const l=await FB.get('logs');    if(l) { logs=Array.isArray(l)?l:Object.values(l); lss('jj_logs',logs); }
   const n=await FB.get('notifs');  if(n) { notifs=n; lss('jj_notifs',notifs); }
@@ -746,7 +787,7 @@ function enterApp(name){
   show('logoutBtn');
   G('boardPage').classList.add('active'); G('adminPage').classList.remove('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
-  G('viewDate').valueAsDate=new Date();
+  G('viewDate').value=todayStr();
   initUI(); updateBoard();
   if(isAdmin) initAdminUI();
   // Firebase real-time listeners
@@ -775,7 +816,8 @@ function startListeners(){
   const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
   const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
   const u4=FB.listen('notifs',v=>{ if(v&&v[curUser]?.length){notifs=v;lss('jj_notifs',v);} });
-  fbListeners=[u1,u2,u3,u4];
+  const u5=FB.listen('classes',v=>{ if(v&&Array.isArray(v)){classes=v;lss('jj_classes',v);if(isAdmin)refreshUserList();} });
+  fbListeners=[u1,u2,u3,u4,u5];
 }
 function stopListeners(){ fbListeners.forEach(u=>{ if(typeof u==='function') u(); }); fbListeners=[]; }
 
@@ -829,9 +871,12 @@ function rebuildHeader(){
   const h=G('timeHeader'); if(!h) return;
   h.innerHTML='<th class="rl">琴房</th>'+getVis().map(t=>`<th style="color:var(--red2);font-weight:500">${t}</th>`).join('');
 }
-function initAdminUI(){ refreshRoomGrid(); renderRoomSortList(); refreshUserList(); refreshAdminLog(); updateCleanupStatus();
+function initAdminUI(){
+  refreshRoomGrid(); renderRoomSortList(); refreshUserList(); refreshAdminLog(); updateCleanupStatus();
   // Load current rules into textarea
   const rules=ls('jj_rules')||''; const ra=G('adminRulesText'); if(ra) ra.value=rules;
+  // Init class dropdowns visibility
+  const nt=G('newMemberType'); if(nt) G('newMemberClassWrap').style.display=nt.value==='student'?'flex':'none';
 }
 
 document.addEventListener('click',ev=>{
@@ -1257,53 +1302,172 @@ G('saveSettingBtn').addEventListener('click',()=>{
 // ═══════════════════════════════════
 // MEMBERS
 // ═══════════════════════════════════
+G('newMemberType').addEventListener('change',function(){
+  G('newMemberClassWrap').style.display=this.value==='student'?'flex':'none';
+});
+G('addClassBtn').addEventListener('click',()=>{
+  const n=V('newClassName'); if(!n){ toast('請輸入班級名稱','e'); return; }
+  if(classes.includes(n)){ toast('班級已存在','e'); return; }
+  classes.push(n); saveClasses(); refreshUserList(); G('newClassName').value='';
+  toast(`班級「${n}」已新增`,'s');
+});
+
 G('addMemberBtn').addEventListener('click',()=>{
   const name=V('newMemberName'), type=G('newMemberType').value;
+  const cls=type==='student'?G('newMemberClass').value:'';
   if(!name){ toast('請輸入姓名','e'); return; }
   if(users[name]){ toast('此帳號已存在','e'); return; }
-  users[name]={pwd:'000',type}; saveUsers(); refreshUserList(); G('newMemberName').value='';
-  toast(`已新增 ${name}（${{admin:'管理員',teacher:'教師',student:'學生'}[type]}）`,'s');
+  users[name]={pwd:'000',type,class:cls||''}; saveUsers(); refreshUserList(); G('newMemberName').value='';
+  toast(`已新增 ${name}（${{admin:'管理員',teacher:'教師',student:'學生'}[type]}${cls?'・'+cls:''}）`,'s');
 });
 G('importBtn').addEventListener('click',()=>{
   const lines=V('importList').split('\n').map(l=>l.trim()).filter(Boolean);
-  const type=G('importType').value; let count=0;
-  lines.forEach(n=>{ if(n&&!users[n]){ users[n]={pwd:'000',type}; count++; } });
+  const type=G('importType').value;
+  const cls=type==='student'?G('importClass').value:'';
+  let count=0;
+  lines.forEach(n=>{ if(n&&!users[n]){ users[n]={pwd:'000',type,class:cls||''}; count++; } });
   saveUsers(); refreshUserList(); G('importList').value=''; toast(`匯入完成：新增 ${count} 位成員`,'s');
 });
+function refreshClassSelects(){
+  // Rebuild all class dropdowns
+  const opts = classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  ['newMemberClass','importClass'].forEach(id=>{ const el=G(id); if(el) el.innerHTML=opts; });
+}
+
+function renderClassTags(){
+  const el=G('classTagList'); if(!el) return;
+  el.innerHTML=classes.map((c,i)=>`
+    <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(28,111,214,.12);border:1px solid rgba(28,111,214,.3);border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--blue2)">
+      <span>${esc(c)}</span>
+      ${c!=='未分班'?`<button data-dclass="${esc(c)}" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:.85rem;line-height:1;padding:0 0 0 2px" title="刪除班級">×</button>`:''}
+    </div>`).join('');
+}
+
 function refreshUserList(){
   const lbl={admin:'管理員',teacher:'教師',student:'學生'};
-  const bc={admin:'mba',teacher:'mbt',student:'mbs'};
-  const groups={admin:[],teacher:[],student:[]};
-  Object.keys(users).forEach(u=>{ const t=users[u].type||'student'; if(!groups[t]) groups[t]=[]; groups[t].push(u); });
+  const groups={admin:[],teacher:{}};
+  // Group students by class
+  classes.forEach(c=>{ groups.teacher; }); // ensure admin/teacher arrays exist
+  const adminList=[], teacherList=[];
+  const studentByClass={};
+  classes.forEach(c=>{ studentByClass[c]=[]; });
+  studentByClass['未分班']=studentByClass['未分班']||[];
 
-  function renderGroup(ids,type){
-    const el=G(ids); if(!el) return;
-    const arr=groups[type]||[];
-    if(!arr.length){ el.innerHTML=`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無${lbl[type]}</div>`; return; }
-    el.innerHTML=arr.map(u=>`
-      <div class="mi"><div style="display:flex;align-items:center;gap:8px"><span>${esc(u)}</span></div>
-        <div class="flex gap6">
-          <button class="btn bgh bsm" data-ua="reset" data-un="${esc(u)}" style="font-size:.68rem;padding:4px 8px">重置密碼</button>
-          ${u!==ADMIN_NAME?`<button class="btn br bsm" data-ua="del" data-un="${esc(u)}" style="font-size:.68rem;padding:4px 8px">刪除</button>`:''}
-        </div>
-      </div>`).join('');
+  Object.keys(users).forEach(u=>{
+    const t=users[u].type||'student';
+    if(t==='admin') adminList.push(u);
+    else if(t==='teacher') teacherList.push(u);
+    else {
+      const cls=users[u].class||'未分班';
+      if(!studentByClass[cls]) studentByClass[cls]=[];
+      studentByClass[cls].push(u);
+    }
+  });
+
+  function memberRow(u, isStudent=false){
+    return `<div class="mi" data-user="${esc(u)}">
+      <div style="display:flex;align-items:center;gap:6px">
+        ${isStudent?`<input type="checkbox" class="member-chk" data-un="${esc(u)}" style="accent-color:var(--gold);width:14px;height:14px">`:''}
+        <span style="font-size:.75rem">${esc(u)}</span>
+      </div>
+      <div class="flex gap6">
+        ${isStudent?`<select class="fs" data-ua="chgclass" data-un="${esc(u)}" style="font-size:.66rem;padding:2px 5px;height:auto;max-width:90px">${classes.map(c=>`<option value="${esc(c)}"${(users[u].class||'未分班')===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:''}
+        <button class="btn bgh bsm" data-ua="reset" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">重置密碼</button>
+        ${u!==ADMIN_NAME?`<button class="btn br bsm" data-ua="del" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">刪除</button>`:''}
+      </div>
+    </div>`;
   }
-  renderGroup('listAdmin','admin');
-  renderGroup('listTeacher','teacher');
-  renderGroup('listStudent','student');
-  const aC=G('adminCount'); if(aC) aC.textContent=(groups.admin||[]).length;
-  const tC=G('teacherCount'); if(tC) tC.textContent=(groups.teacher||[]).length;
-  const sC=G('studentCount'); if(sC) sC.textContent=(groups.student||[]).length;
+
+  // Admin
+  const aEl=G('listAdmin');
+  if(aEl) aEl.innerHTML=adminList.length?adminList.map(u=>memberRow(u,false)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無管理員</div>`;
+  const aC=G('adminCount'); if(aC) aC.textContent=adminList.length;
+
+  // Teacher
+  const tEl=G('listTeacher');
+  if(tEl) tEl.innerHTML=teacherList.length?teacherList.map(u=>memberRow(u,false)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無教師</div>`;
+  const tC=G('teacherCount'); if(tC) tC.textContent=teacherList.length;
+
+  // Students by class
+  const scg=G('studentClassGroups'); if(!scg) return;
+  const totalStudents=Object.values(studentByClass).reduce((s,a)=>s+a.length,0);
+  scg.innerHTML=classes.map(cls=>{
+    const arr=studentByClass[cls]||[];
+    return `<details open style="background:var(--bg4);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:8px">
+      <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--blue2);font-weight:500;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>▼ 學生 · ${esc(cls)}</span>
+          <span class="mbadge mbs" style="font-size:.6rem">${arr.length}</span>
+        </div>
+        <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+          <button class="btn bgh bsm" data-cls-selall="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">全選</button>
+          <button class="btn br bsm" data-cls-delsel="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">刪除已選</button>
+        </div>
+      </summary>
+      <div class="slist" style="max-height:220px;border:none;border-radius:0;border-top:1px solid var(--bd)">
+        ${arr.length?arr.map(u=>memberRow(u,true)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">此班級無學生</div>`}
+      </div>
+    </details>`;
+  }).join('');
+
+  // Also refresh class selects
+  refreshClassSelects();
+  renderClassTags();
 }
-// Combined click handler for all three lists
-['listAdmin','listTeacher','listStudent'].forEach(id=>{
-  document.addEventListener('click',ev=>{
-    const el=G(id); if(!el||!el.contains(ev.target)) return;
-    const btn=ev.target.closest('[data-ua]'); if(!btn) return;
+
+// Event delegation for member actions across all lists
+document.addEventListener('click',ev=>{
+  // member reset/del
+  const btn=ev.target.closest('[data-ua]');
+  if(btn && (G('listAdmin')?.contains(btn)||G('listTeacher')?.contains(btn)||G('studentClassGroups')?.contains(btn))){
     const u=btn.dataset.un, a=btn.dataset.ua;
     if(a==='reset'){ users[u].pwd='000'; saveUsers(); toast(`${u} 密碼已重置為 000`,'s'); }
     if(a==='del') showConfirm(`確定刪除成員「${u}」？`,'',()=>{ delete users[u]; saveUsers(); refreshUserList(); toast('成員已刪除','i'); });
-  });
+    return;
+  }
+  // select all in class
+  const sa=ev.target.closest('[data-cls-selall]');
+  if(sa){
+    const cls=sa.dataset.clsSelall;
+    const details=sa.closest('details');
+    if(details) details.querySelectorAll('.member-chk').forEach(c=>c.checked=true);
+    return;
+  }
+  // delete selected in class
+  const ds=ev.target.closest('[data-cls-delsel]');
+  if(ds){
+    const cls=ds.dataset.clsDelsel;
+    const details=ds.closest('details');
+    if(!details) return;
+    const selected=[...details.querySelectorAll('.member-chk:checked')].map(c=>c.dataset.un).filter(u=>u!==ADMIN_NAME);
+    if(!selected.length){ toast('請先勾選要刪除的成員','e'); return; }
+    showConfirm(`確定刪除 ${selected.length} 位成員？`,`班級：${cls}，此操作無法復原`,()=>{
+      selected.forEach(u=>{ delete users[u]; });
+      saveUsers(); refreshUserList(); toast(`已刪除 ${selected.length} 位成員`,'i');
+    });
+    return;
+  }
+  // delete class tag
+  const dc=ev.target.closest('[data-dclass]');
+  if(dc){
+    const cls=dc.dataset.dclass;
+    const studentsInClass=Object.keys(users).filter(u=>users[u].type==='student'&&(users[u].class||'未分班')===cls);
+    const sub=studentsInClass.length?`班級內有 ${studentsInClass.length} 位學生將移至「未分班」`:'此班級目前無學生';
+    showConfirm(`確定刪除班級「${cls}」？`,sub,()=>{
+      studentsInClass.forEach(u=>{ users[u].class='未分班'; });
+      classes=classes.filter(c=>c!==cls);
+      saveClasses(); saveUsers(); refreshUserList(); toast(`班級「${cls}」已刪除`,'i');
+    });
+    return;
+  }
+});
+
+// 換班 change handler
+document.addEventListener('change',ev=>{
+  const sel=ev.target.closest('[data-ua="chgclass"]'); if(!sel) return;
+  const u=sel.dataset.un; if(!u||!users[u]) return;
+  const newCls=sel.value;
+  users[u].class=newCls; saveUsers(); refreshUserList(); toast(`${u} 已移至「${newCls}」`,'s');
 });
 
 // ═══════════════════════════════════
@@ -1537,9 +1701,9 @@ async function saveRules(){ lss('jj_rules',G('adminRulesText').value); if(fbMode
 async function appBoot(){
   if(fbMode) await loadFromFirebase();
   // Show board for all visitors (no login required)
-  const todayVal=todayStr();
-  G('viewDate').min=todayVal;
-  G('viewDate').valueAsDate=new Date();
+  const td=todayStr();
+  G('viewDate').value=td;
+  G('viewDate').min=td;
   rebuildHeader();
   updateBoard();
   loadRulesNotice();
@@ -1549,4 +1713,5 @@ async function appBoot(){
 </script>
 </body>
 </html>
+
 
