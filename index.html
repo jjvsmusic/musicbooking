@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>莊敬音樂科 · 琴房預約系統</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -54,172 +54,206 @@ initFirebase();
 </script>
 <style>
 :root{
-  --bg:#0d0f12;--bg2:#151820;--bg3:#1c2029;--bg4:#222633;
-  --bd:#2a2e3d;--bd2:#353a4d;
-  --gold:#c9a84c;--gold2:#e2bc6a;--gold3:#f0d490;
-  --tx:#e2e6f0;--tx2:#9aa0b8;--tx3:#565e7a;
-  --blue:#1c6fd6;--blue2:#3d8ef0;
-  --pur:#8b3ec9;--pur2:#a855f7;
-  --red:#d94040;--red2:#f06060;
-  --grn:#28a060;--grn2:#40c878;
-  --org2:#e89040;
-  --sh:0 8px 32px rgba(0,0,0,.6);--r:10px;
+  /* 藝術插畫風 · 暖白主調 */
+  --bg:#fdf6ee;--bg2:#fff9f3;--bg3:#fef3e4;--bg4:#fde8cc;
+  --bd:#e8d5bc;--bd2:#cfb08a;
+  --gold:#9a6200;--gold2:#b57800;--gold3:#7a4e00;
+  --tx:#2a1a08;--tx2:#6b4820;--tx3:#a87840;
+  --blue:#1a449e;--blue2:#2255c4;
+  --pur:#6b2d9e;--pur2:#8b3ec9;
+  --red:#b83030;--red2:#d94040;
+  --grn:#1a7540;--grn2:#22a060;
+  --org:#b05808;--org2:#d07010;
+  --sh:0 4px 24px rgba(80,40,0,.1);--r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
-body{font-family:'Noto Sans TC',sans-serif;font-weight:300;background:var(--bg);color:var(--tx);overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(201,168,76,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body{
+  font-family:"Noto Sans TC",sans-serif;font-weight:400;
+  background:var(--bg);color:var(--tx);overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 5% 0%,rgba(181,120,0,.07) 0%,transparent 60%),
+    radial-gradient(ellipse 50% 70% at 95% 100%,rgba(176,88,8,.06) 0%,transparent 55%);
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(180,120,0,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(180,120,0,.03) 1px,transparent 1px);
+  background-size:56px 56px;
+}
 
-/* ── NAV ── */
-nav{position:sticky;top:0;z-index:500;background:rgba(13,15,18,.95);backdrop-filter:blur(14px);border-bottom:1px solid var(--bd);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px}
-.nav-logo{display:flex;align-items:center;gap:10px;font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;color:var(--gold2)}
-.nav-logo .sub{font-size:.68rem;color:var(--tx3);font-weight:300;font-family:'Noto Sans TC',sans-serif}
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:500;
+  background:rgba(253,246,238,.97);backdrop-filter:blur(16px);
+  border-bottom:2px solid var(--bd);
+  padding:0 22px;display:flex;align-items:center;justify-content:space-between;height:64px;
+  box-shadow:0 2px 16px rgba(80,40,0,.08);
+}
+nav::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--org2),var(--gold2),#c8920c,var(--gold2),var(--org2));
+}
+.nav-logo{display:flex;align-items:center;gap:12px;font-family:"Noto Serif TC",serif;font-size:1.05rem;font-weight:700;color:var(--gold3);letter-spacing:.04em}
+.nav-logo span{font-size:1.4rem}
+.nav-logo .sub{font-size:.65rem;color:var(--tx3);font-weight:400;font-family:"Noto Sans TC",sans-serif;letter-spacing:.06em}
 .nav-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ntab{background:transparent;border:1.5px solid var(--bd2);color:var(--tx2);padding:5px 16px;border-radius:20px;font-family:'Noto Sans TC',sans-serif;font-size:.74rem;cursor:pointer;transition:all .2s;white-space:nowrap}
-.ntab:hover{border-color:var(--gold);color:var(--gold)}.ntab.active{background:var(--gold);color:#0d0f12;border-color:var(--gold);font-weight:500}
-.admin-badge{background:rgba(217,64,64,.15);color:var(--red2);border:1px solid rgba(217,64,64,.35);padding:3px 12px;border-radius:20px;font-size:.66rem;display:none}
-.user-pill{background:var(--bg3);border:1px solid var(--bd2);border-radius:20px;padding:4px 14px;font-size:.73rem;color:var(--tx2);display:none;align-items:center;gap:8px}
-.role-tag{background:var(--gold);color:#0d0f12;border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:600}
-.admin-tag{background:var(--red2);color:#fff;border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:600}
-.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--grn2);display:inline-block;margin-right:4px}
-.sync-dot.off{background:var(--tx3)}
+.ntab{background:transparent;border:1.5px solid var(--bd2);color:var(--tx2);padding:5px 16px;border-radius:20px;font-family:"Noto Sans TC",sans-serif;font-size:.74rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.ntab:hover{border-color:var(--gold2);color:var(--gold3);background:var(--bg4)}
+.ntab.active{background:var(--gold3);color:#fff;border-color:var(--gold3);font-weight:500;box-shadow:0 2px 8px rgba(122,78,0,.25)}
+.admin-badge{background:rgba(184,48,48,.1);color:var(--red);border:1px solid rgba(184,48,48,.25);padding:3px 12px;border-radius:20px;font-size:.66rem;display:none}
+.user-pill{background:var(--bg3);border:1.5px solid var(--bd);border-radius:20px;padding:4px 14px;font-size:.73rem;color:var(--tx2);display:none;align-items:center;gap:8px;box-shadow:inset 0 1px 3px rgba(80,40,0,.06)}
+.role-tag{background:var(--gold3);color:#fff;border-radius:10px;padding:1px 9px;font-size:.62rem;font-weight:600}
+.admin-tag{background:var(--red2);color:#fff;border-radius:10px;padding:1px 9px;font-size:.62rem;font-weight:600}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--grn2);display:inline-block;margin-right:4px;box-shadow:0 0 5px var(--grn2)}
+.sync-dot.off{background:var(--tx3);box-shadow:none}
 
-/* ── LAYOUT ── */
+/* LAYOUT */
 .page{display:none;position:relative;z-index:1}.page.active{display:block}
 .container{max-width:1600px;margin:0 auto;padding:20px 16px}
 
-/* ── FILTER BAR ── */
-.fbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px;margin-bottom:16px}
-.date-input{background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);padding:6px 12px;border-radius:6px;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:.82rem}
-.date-input:focus{border-color:var(--gold)}
-.day-badge{font-family:'Noto Serif TC',serif;font-weight:600;color:var(--gold2);font-size:.95rem;min-width:42px}
+/* FILTER BAR */
+.fbar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--bg2);border:1.5px solid var(--bd);border-radius:var(--r);
+  padding:12px 18px;margin-bottom:18px;
+  box-shadow:var(--sh);position:relative;overflow:hidden;
+}
+.fbar::after{content:"🎼";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:3rem;opacity:.04;pointer-events:none}
+.date-input{background:var(--bg4);border:1.5px solid var(--bd2);color:var(--tx);padding:6px 12px;border-radius:8px;outline:none;font-family:"Noto Sans TC",sans-serif;font-size:.82rem}
+.date-input:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(181,120,0,.1)}
+.day-badge{font-family:"Noto Serif TC",serif;font-weight:700;color:var(--gold3);font-size:1rem;min-width:42px}
 .legend{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
 .leg{display:flex;align-items:center;gap:5px;font-size:.65rem;color:var(--tx3)}
 .ldot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 
-/* ── TABLE ── */
-.table-outer{border-radius:12px;border:1px solid var(--bd);overflow:hidden;background:var(--bg2)}
+/* TABLE */
+.table-outer{border-radius:14px;border:1.5px solid var(--bd);overflow:hidden;background:var(--bg2);box-shadow:var(--sh)}
 .table-scroll{overflow-x:auto}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
-thead th{background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center}
-tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
+thead th{background:linear-gradient(180deg,var(--bg3),var(--bg4));color:var(--tx2);font-size:.64rem;font-weight:500;padding:10px 4px;border-bottom:1.5px solid var(--bd);border-right:1px solid rgba(232,213,188,.7);text-align:center;letter-spacing:.02em}
+tbody td{border-bottom:1px solid rgba(232,213,188,.55);border-right:1px solid rgba(232,213,188,.55);height:58px;padding:3px}
 tbody tr:last-child td{border-bottom:none}
+tbody tr:nth-child(even) td{background:rgba(253,236,204,.22)}
 tbody td:last-child,thead th:last-child{border-right:none}
-.rl{background:var(--bg3);position:sticky;left:0;z-index:100;min-width:96px;width:96px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 5px;vertical-align:middle}
+.rl{background:linear-gradient(135deg,var(--bg3),var(--bg4));position:sticky;left:0;z-index:100;min-width:96px;width:96px;font-family:"Noto Serif TC",serif;font-weight:700;font-size:.72rem;color:var(--gold3);border-right:2px solid var(--gold2)!important;text-align:center;padding:0 5px;vertical-align:middle;text-shadow:0 1px 2px rgba(122,78,0,.1)}
 
-/* ── SLOT ── */
+/* SLOT */
 .cell{position:relative;width:100%;height:100%;min-height:52px;display:flex;align-items:stretch}
-.slot{flex:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.65rem;font-weight:500;transition:all .15s;overflow:hidden;padding:3px 4px;text-align:center;position:relative;cursor:pointer}
-.sf{background:rgba(40,160,96,.07);border:1px solid rgba(40,160,96,.18);color:var(--tx3)}.sf:hover{background:rgba(40,160,96,.2);border-color:var(--grn2);color:var(--grn2)}
-.sb{background:linear-gradient(135deg,#1c6fd6,#1352a8);color:#fff;border:none}
-.st{background:linear-gradient(135deg,#8b3ec9,#6827a0);color:#fff;border:none}
-.sx{background:rgba(201,168,76,.08);border:1.5px dashed rgba(201,168,76,.5);color:var(--gold2)}.sx:hover{background:rgba(201,168,76,.16)}
-.sk{background:repeating-linear-gradient(45deg,#1c2029,#1c2029 8px,#161920 8px,#161920 16px);color:var(--tx2);border:1px solid var(--bd2)}
-/* reserved = fixed slot reserved for a named person, but can be booked day-before by others */
-.sr{background:rgba(201,168,76,.04);border:1.5px solid rgba(201,168,76,.3);color:var(--gold3)}
-.past{opacity:.28;pointer-events:none!important;cursor:default!important}
+.slot{flex:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.65rem;font-weight:500;transition:all .18s;overflow:hidden;padding:3px 4px;text-align:center;position:relative;cursor:pointer}
+.sf{background:rgba(26,117,64,.05);border:1px solid rgba(26,117,64,.18);color:var(--tx3)}.sf:hover{background:rgba(26,117,64,.13);border-color:var(--grn2);color:var(--grn);transform:scale(1.02)}
+.sb{background:linear-gradient(135deg,#1a449e,#1030a0);color:#fff;border:none;box-shadow:0 2px 8px rgba(26,68,158,.28)}
+.st{background:linear-gradient(135deg,#6b2d9e,#8b3ec9);color:#fff;border:none;box-shadow:0 2px 8px rgba(107,45,158,.28)}
+.sx{background:rgba(154,98,0,.06);border:1.5px dashed rgba(154,98,0,.38);color:var(--gold3)}.sx:hover{background:rgba(154,98,0,.13);transform:scale(1.02)}
+.sk{background:repeating-linear-gradient(45deg,#f5ecdf,#f5ecdf 7px,#ecdfc8 7px,#ecdfc8 14px);color:var(--tx3);border:1px solid var(--bd2)}
+.sr{background:rgba(154,98,0,.04);border:1.5px solid rgba(154,98,0,.22);color:var(--gold2)}
+.past{opacity:.3;pointer-events:none!important;cursor:default!important}
 .sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%;line-height:1.3}
-.snote{font-size:.54rem;opacity:.8;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%}
-.fhint{position:absolute;bottom:2px;right:3px;font-size:.54rem;color:rgba(201,168,76,.5);pointer-events:none}
-.qdel{display:none;position:absolute;top:3px;right:3px;background:var(--red);color:#fff;border:none;border-radius:0 5px 0 5px;width:18px;height:18px;font-size:.7rem;cursor:pointer;z-index:20;line-height:18px;text-align:center;padding:0;font-weight:700}
+.snote{font-size:.54rem;opacity:.75;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%}
+.fhint{position:absolute;bottom:2px;right:3px;font-size:.54rem;color:rgba(154,98,0,.45);pointer-events:none}
+.qdel{display:none;position:absolute;top:3px;right:3px;background:var(--red2);color:#fff;border:none;border-radius:0 6px 0 6px;width:18px;height:18px;font-size:.7rem;cursor:pointer;z-index:20;line-height:18px;text-align:center;padding:0;font-weight:700}
 .is-admin .qdel{display:block}
 
-/* ── ADMIN GRID ── */
-.agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
-.acard{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px}
-.acard h3{font-family:'Noto Serif TC',serif;font-size:.88rem;color:var(--gold);border-left:3px solid var(--gold);padding-left:10px;margin:0}
+/* ADMIN GRID */
+.agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:20px}
+.acard{background:var(--bg2);border:1.5px solid var(--bd);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 2px 16px rgba(80,40,0,.07);position:relative;overflow:hidden}
+.acard::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold2),var(--org2),var(--gold2));opacity:.55}
+.acard h3{font-family:"Noto Serif TC",serif;font-size:.88rem;color:var(--gold3);border-left:3px solid var(--gold2);padding-left:10px;margin:0;letter-spacing:.02em}
 .sdiv{height:1px;background:var(--bd);margin:2px 0}
 
-/* ── ROOM SORT ── */
+/* ROOM SORT */
 .rsl{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto}
-.rsi{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;padding:7px 10px;font-size:.78rem;color:var(--tx2)}
-.rsi.drag-over{border-color:var(--gold);background:rgba(201,168,76,.08)}
+.rsi{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;font-size:.78rem;color:var(--tx2);transition:all .15s}
+.rsi:hover{border-color:var(--bd2);background:var(--bg4)}
+.rsi.drag-over{border-color:var(--gold2);background:rgba(181,120,0,.07)}
 .rsi.dragging{opacity:.4;border-style:dashed}
-.dh{color:var(--tx3);cursor:grab;user-select:none;flex-shrink:0;padding:0 2px}
-.dh:active{cursor:grabbing}
+.dh{color:var(--tx3);cursor:grab;user-select:none;flex-shrink:0;padding:0 2px}.dh:active{cursor:grabbing}
 .rn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ri{flex:1;background:var(--bg4);border:1px solid var(--gold);color:var(--tx);padding:3px 8px;border-radius:4px;font-size:.75rem;outline:none}
+.ri{flex:1;background:var(--bg);border:1.5px solid var(--gold2);color:var(--tx);padding:3px 8px;border-radius:4px;font-size:.75rem;outline:none}
 .mvb{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
 .mvbtn{background:none;border:1px solid var(--bd2);color:var(--tx3);border-radius:3px;width:18px;height:14px;cursor:pointer;font-size:.6rem;line-height:1;padding:0;text-align:center}
-.mvbtn:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}.mvbtn:disabled{opacity:.3;cursor:default}
+.mvbtn:hover:not(:disabled){border-color:var(--gold2);color:var(--gold2)}.mvbtn:disabled{opacity:.3;cursor:default}
 
-/* ── CHECK GRID ── */
-.cbox{background:var(--bg4);border:1px solid var(--bd);border-radius:8px;padding:10px;max-height:156px;overflow-y:auto}
+/* CHECK GRID */
+.cbox{background:var(--bg3);border:1.5px solid var(--bd);border-radius:8px;padding:10px;max-height:156px;overflow-y:auto}
 .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
-.ci{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--tx2);cursor:pointer;padding:4px 6px;border-radius:4px}
-.ci:hover{background:rgba(201,168,76,.08)}.ci input{width:14px;height:14px;accent-color:var(--gold);flex-shrink:0}
+.ci{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--tx2);cursor:pointer;padding:4px 6px;border-radius:6px;transition:background .12s}
+.ci:hover{background:rgba(154,98,0,.07);color:var(--tx)}.ci input{width:14px;height:14px;accent-color:var(--gold2);flex-shrink:0}
 .ci.disabled{opacity:.3;pointer-events:none}
 
-/* ── SCROLL LIST ── */
-.slist{background:var(--bg4);border:1px solid var(--bd);border-radius:8px;max-height:280px;overflow-y:auto}
+/* SCROLL LIST */
+.slist{background:var(--bg3);border:1.5px solid var(--bd);border-radius:8px;max-height:280px;overflow-y:auto}
 .li{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bd);font-size:.75rem;color:var(--tx2)}
-.li:last-child{border-bottom:none}.li:hover{background:rgba(255,255,255,.025)}
-.lcb{background:rgba(217,64,64,.15);color:var(--red2);border:1px solid rgba(217,64,64,.28);border-radius:5px;padding:3px 9px;font-size:.68rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
-.lcb:hover{background:rgba(217,64,64,.28)}
+.li:last-child{border-bottom:none}.li:hover{background:rgba(154,98,0,.04)}
+.lcb{background:rgba(184,48,48,.08);color:var(--red);border:1px solid rgba(184,48,48,.2);border-radius:5px;padding:3px 9px;font-size:.68rem;cursor:pointer;font-family:"Noto Sans TC",sans-serif}
+.lcb:hover{background:rgba(184,48,48,.16)}
 .mi{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bd);font-size:.75rem;color:var(--tx2)}
-.mi:last-child{border-bottom:none}.mi:hover{background:rgba(255,255,255,.025)}
+.mi:last-child{border-bottom:none}.mi:hover{background:rgba(154,98,0,.04)}
 .mbadge{font-size:.63rem;padding:2px 8px;border-radius:10px;font-weight:500}
-.mba{background:rgba(217,64,64,.2);color:var(--red2)}.mbt{background:rgba(139,62,201,.2);color:var(--pur2)}.mbs{background:rgba(28,111,214,.2);color:var(--blue2)}
+.mba{background:rgba(184,48,48,.1);color:var(--red)}.mbt{background:rgba(107,45,158,.1);color:var(--pur)}.mbs{background:rgba(26,68,158,.1);color:var(--blue)}
 
-/* ── BUTTONS ── */
-.btn{border:none;border-radius:6px;padding:9px 20px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-size:.78rem;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.bg{background:var(--gold);color:#0d0f12}.bg:hover{background:var(--gold2)}
-.bb{background:rgba(28,111,214,.18);color:var(--blue2);border:1px solid rgba(28,111,214,.32)}.bb:hover{background:rgba(28,111,214,.3)}
-.br{background:rgba(217,64,64,.15);color:var(--red2);border:1px solid rgba(217,64,64,.3)}.br:hover{background:rgba(217,64,64,.27)}
-.bgh{background:var(--bg4);color:var(--tx2);border:1px solid var(--bd2)}.bgh:hover{color:var(--tx)}
+/* BUTTONS */
+.btn{border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-family:"Noto Sans TC",sans-serif;font-size:.78rem;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.bg{background:var(--gold3);color:#fff;box-shadow:0 2px 8px rgba(122,78,0,.22)}.bg:hover{background:var(--gold2);box-shadow:0 4px 14px rgba(122,78,0,.3)}
+.bb{background:rgba(26,68,158,.09);color:var(--blue);border:1.5px solid rgba(26,68,158,.22)}.bb:hover{background:rgba(26,68,158,.18)}
+.br{background:rgba(184,48,48,.09);color:var(--red);border:1.5px solid rgba(184,48,48,.22)}.br:hover{background:rgba(184,48,48,.18)}
+.bgh{background:var(--bg4);color:var(--tx2);border:1.5px solid var(--bd2)}.bgh:hover{color:var(--tx);border-color:var(--bd)}
 .bfull{width:100%}.bsm{padding:5px 12px;font-size:.7rem}
 
-/* ── FORMS ── */
+/* FORMS */
 .fg{display:flex;flex-direction:column;gap:6px}
-.fl{font-size:.71rem;color:var(--tx2);letter-spacing:.02em}
-.fi,.fs,.fta{background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);padding:9px 12px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:.82rem;outline:none;transition:border-color .2s;width:100%}
-.fi:focus,.fs:focus,.fta:focus{border-color:var(--gold)}.fi::placeholder{color:var(--tx3)}.fs option{background:var(--bg3)}.fta{resize:vertical;min-height:66px}
+.fl{font-size:.71rem;color:var(--tx3);letter-spacing:.03em;font-weight:500}
+.fi,.fs,.fta{background:var(--bg);border:1.5px solid var(--bd2);color:var(--tx);padding:9px 12px;border-radius:8px;font-family:"Noto Sans TC",sans-serif;font-size:.82rem;outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(181,120,0,.1)}
+.fi::placeholder{color:var(--tx3)}.fs option{background:var(--bg3)}.fta{resize:vertical;min-height:66px}
 .mbt2{display:flex;gap:6px}
-.mbtbtn{background:transparent;border:1.5px solid var(--bd2);color:var(--tx3);padding:6px 16px;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:.75rem;cursor:pointer;transition:all .2s}
-.mbtbtn.active{background:var(--gold);color:#0d0f12;border-color:var(--gold);font-weight:500}
+.mbtbtn{background:transparent;border:1.5px solid var(--bd2);color:var(--tx3);padding:6px 16px;border-radius:8px;font-family:"Noto Sans TC",sans-serif;font-size:.75rem;cursor:pointer;transition:all .2s}
+.mbtbtn.active{background:var(--gold3);color:#fff;border-color:var(--gold3);font-weight:500;box-shadow:0 2px 8px rgba(122,78,0,.2)}
 
-/* ── MODAL ── */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:900;backdrop-filter:blur(6px)}
-.modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--bd2);border-radius:14px;width:480px;max-width:96vw;max-height:92vh;overflow-y:auto;z-index:1000;box-shadow:0 20px 60px rgba(0,0,0,.7);animation:mIn .22s ease}
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(42,26,8,.52);z-index:900;backdrop-filter:blur(4px)}
+.modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1.5px solid var(--bd);border-radius:16px;width:480px;max-width:96vw;max-height:92vh;overflow-y:auto;z-index:1000;box-shadow:0 24px 80px rgba(42,26,8,.18);animation:mIn .22s ease;position:fixed}
+.modal::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0;background:linear-gradient(90deg,var(--gold2),var(--org2),var(--gold2))}
 @keyframes mIn{from{transform:translate(-50%,-56%);opacity:0}to{transform:translate(-50%,-50%);opacity:1}}
-.mh{padding:18px 20px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:2}
-.mt{font-family:'Noto Serif TC',serif;font-size:.95rem;color:var(--gold2)}
-.mc{background:none;border:none;color:var(--tx3);font-size:1.3rem;cursor:pointer;line-height:1;padding:2px 6px}.mc:hover{color:var(--tx)}
-.mb{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
-.mf{padding:12px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);z-index:2}
-.ib{background:var(--bg3);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:5px}
+.mh{padding:20px 22px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:2;border-radius:16px 16px 0 0}
+.mt{font-family:"Noto Serif TC",serif;font-size:.95rem;color:var(--gold3);font-weight:700}
+.mc{background:none;border:none;color:var(--tx3);font-size:1.3rem;cursor:pointer;line-height:1;padding:2px 6px;border-radius:4px}.mc:hover{color:var(--tx);background:var(--bg4)}
+.mb{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.mf{padding:12px 22px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);z-index:2;border-radius:0 0 16px 16px}
+.ib{background:var(--bg3);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:5px;border:1px solid var(--bd)}
 .ir{display:flex;justify-content:space-between;font-size:.77rem}
-.ila{color:var(--tx3)}.ilv{color:var(--tx)}.ilv.ac{color:var(--gold2);font-weight:600}
-.ab{padding:10px 13px;border-radius:7px;font-size:.76rem}
-.aw{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--gold3)}
-.ae{background:rgba(217,64,64,.1);border:1px solid rgba(217,64,64,.3);color:var(--red2)}
-.fn{background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.28);border-radius:8px;padding:10px 13px;font-size:.74rem;color:var(--gold3);display:flex;align-items:flex-start;gap:8px}
-.notif-item{background:var(--bg3);border-radius:7px;padding:10px 13px;margin-bottom:8px;font-size:.78rem}
+.ila{color:var(--tx3)}.ilv{color:var(--tx)}.ilv.ac{color:var(--gold3);font-weight:600}
+.ab{padding:10px 13px;border-radius:8px;font-size:.76rem}
+.aw{background:rgba(181,120,0,.08);border:1px solid rgba(181,120,0,.24);color:var(--gold3)}
+.ae{background:rgba(184,48,48,.08);border:1px solid rgba(184,48,48,.24);color:var(--red)}
+.fn{background:rgba(181,120,0,.06);border:1px solid rgba(181,120,0,.2);border-radius:8px;padding:10px 13px;font-size:.74rem;color:var(--gold3);display:flex;align-items:flex-start;gap:8px}
+.notif-item{background:var(--bg3);border-radius:8px;padding:10px 13px;margin-bottom:8px;font-size:.78rem;border:1px solid var(--bd)}
 
-/* ── CONFIRM MODAL ── */
+/* CONFIRM MODAL */
 #confirmModal .mb{align-items:center;text-align:center}
 #confirmModal .cm-msg{font-size:.9rem;color:var(--tx);line-height:1.6;padding:8px 0}
 #confirmModal .cm-sub{font-size:.76rem;color:var(--tx3);margin-top:4px}
 
-/* ── LOGIN ── */
+/* LOGIN */
 .lw{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
-.lb{width:380px;max-width:95vw;background:var(--bg2);border:1px solid var(--bd2);border-radius:16px;padding:42px 36px;box-shadow:0 24px 64px rgba(0,0,0,.65)}
+.lb{width:380px;max-width:95vw;background:var(--bg2);border:1.5px solid var(--bd);border-radius:18px;padding:44px 38px;box-shadow:0 24px 80px rgba(42,26,8,.16);position:relative;overflow:hidden}
+.lb::after{content:"🎼";position:absolute;bottom:-12px;right:-10px;font-size:6rem;opacity:.04;pointer-events:none}
 .pkeys{display:flex;justify-content:center;gap:2px;margin-bottom:22px}
-.wk{width:16px;height:48px;background:rgba(226,222,210,.1);border-radius:0 0 4px 4px;border:1px solid var(--bd2)}
-.bk{width:10px;height:30px;background:rgba(201,168,76,.22);border-radius:0 0 3px 3px;margin:0 -5px;z-index:1;position:relative}
+.wk{width:16px;height:48px;background:rgba(255,248,236,.95);border-radius:0 0 4px 4px;border:1.5px solid var(--bd);box-shadow:0 2px 4px rgba(80,40,0,.08)}
+.bk{width:10px;height:30px;background:rgba(42,26,8,.78);border-radius:0 0 3px 3px;margin:0 -5px;z-index:1;position:relative}
 .llogo{text-align:center;margin-bottom:28px}
-.llogo h1{font-family:'Noto Serif TC',serif;font-size:1.45rem;color:var(--gold2);letter-spacing:.04em;margin-bottom:6px}
-.llogo p{font-size:.71rem;color:var(--tx3)}
+.llogo h1{font-family:"Noto Serif TC",serif;font-size:1.48rem;color:var(--gold3);letter-spacing:.06em;margin-bottom:6px;font-weight:700}
+.llogo p{font-size:.71rem;color:var(--tx3);letter-spacing:.04em}
 .ldiv{height:1px;background:var(--bd);margin:18px 0}
-.pn{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.28);border-radius:8px;padding:12px;font-size:.76rem;color:var(--gold3)}
-/* firebase setup notice */
-.fbsetup{background:rgba(28,111,214,.08);border:1px solid rgba(28,111,214,.3);border-radius:8px;padding:12px;font-size:.75rem;color:var(--blue2);margin-bottom:14px;line-height:1.6}
+.pn{background:rgba(181,120,0,.07);border:1px solid rgba(181,120,0,.24);border-radius:8px;padding:12px;font-size:.76rem;color:var(--gold3)}
+.fbsetup{background:rgba(26,68,158,.07);border:1px solid rgba(26,68,158,.2);border-radius:8px;padding:12px;font-size:.75rem;color:var(--blue);margin-bottom:14px;line-height:1.6}
 
-/* ── TOAST ── */
+/* TOAST */
 .tw{position:fixed;bottom:22px;right:22px;z-index:2000;display:flex;flex-direction:column;gap:7px;pointer-events:none}
-.tt{background:var(--bg3);border:1px solid var(--bd2);border-radius:8px;padding:11px 16px;font-size:.77rem;color:var(--tx);max-width:280px;animation:tIn .3s ease;transition:opacity .45s;pointer-events:all;box-shadow:var(--sh)}
-.tt.s{border-left:3px solid var(--grn2)}.tt.e{border-left:3px solid var(--red2)}.tt.i{border-left:3px solid var(--gold)}
+.tt{background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:11px 16px;font-size:.77rem;color:var(--tx);max-width:280px;animation:tIn .3s ease;transition:opacity .45s;pointer-events:all;box-shadow:0 6px 24px rgba(42,26,8,.12)}
+.tt.s{border-left:3px solid var(--grn2)}.tt.e{border-left:3px solid var(--red2)}.tt.i{border-left:3px solid var(--gold2)}
 @keyframes tIn{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
-::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg3)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--gold2)}
 .hidden{display:none!important}.flex{display:flex}.gap8{gap:8px}.gap6{gap:6px}.flex1{flex:1}
 .mt4{margin-top:4px}.mt8{margin-top:8px}.txs{font-size:.7rem}.txm{color:var(--tx3)}
 </style>
@@ -1337,10 +1371,68 @@ function refreshClassSelects(){
 function renderClassTags(){
   const el=G('classTagList'); if(!el) return;
   el.innerHTML=classes.map((c,i)=>`
-    <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(28,111,214,.12);border:1px solid rgba(28,111,214,.3);border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--blue2)">
-      <span>${esc(c)}</span>
-      ${c!=='未分班'?`<button data-dclass="${esc(c)}" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:.85rem;line-height:1;padding:0 0 0 2px" title="刪除班級">×</button>`:''}
+    <div class="cls-tag" data-cidx="${i}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(26,68,158,.1);border:1px solid rgba(26,68,158,.28);border-radius:20px;padding:4px 10px;font-size:.72rem;color:var(--blue)">
+      <span class="cls-tag-name">${esc(c)}</span>
+      <input class="cls-tag-input hidden" value="${esc(c)}" style="background:transparent;border:none;border-bottom:1.5px solid var(--blue);color:var(--blue);font-size:.72rem;width:90px;outline:none;padding:0;font-family:'Noto Sans TC',sans-serif">
+      ${c!=='未分班'?`
+        <button class="cls-edit-btn" data-cidx="${i}" style="background:rgba(26,68,158,.15);border:1px solid rgba(26,68,158,.3);border-radius:4px;color:var(--blue);cursor:pointer;font-size:.65rem;line-height:1;padding:2px 6px;font-family:'Noto Sans TC',sans-serif">改名</button>
+        <button class="cls-save-btn hidden" data-cidx="${i}" style="background:rgba(26,117,64,.15);border:1px solid rgba(26,117,64,.3);border-radius:4px;color:var(--grn);cursor:pointer;font-size:.65rem;line-height:1;padding:2px 6px;font-family:'Noto Sans TC',sans-serif">✓ 儲存</button>
+        <button class="cls-del-btn" data-cidx="${i}" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:.9rem;line-height:1;padding:0 0 0 2px">×</button>`:''}
     </div>`).join('');
+
+  el.addEventListener('click', function handler(ev){
+    const editBtn=ev.target.closest('.cls-edit-btn');
+    const saveBtn=ev.target.closest('.cls-save-btn');
+    const delBtn=ev.target.closest('.cls-del-btn');
+    if(!editBtn&&!saveBtn&&!delBtn) return;
+    ev.stopPropagation();
+
+    if(editBtn){
+      const idx=+editBtn.dataset.cidx;
+      const tag=el.querySelector(\`.cls-tag[data-cidx="${idx}"]\`);
+      tag.querySelector('.cls-tag-name').classList.add('hidden');
+      const inp=tag.querySelector('.cls-tag-input');
+      inp.classList.remove('hidden'); inp.value=classes[idx]; inp.focus(); inp.select();
+      editBtn.classList.add('hidden');
+      tag.querySelector('.cls-save-btn').classList.remove('hidden');
+      inp.onkeydown=e=>{
+        if(e.key==='Enter'){ e.preventDefault(); doRenameClass(idx, inp.value.trim()); }
+        if(e.key==='Escape') renderClassTags();
+      };
+      return;
+    }
+    if(saveBtn){
+      const idx=+saveBtn.dataset.cidx;
+      const tag=el.querySelector(\`.cls-tag[data-cidx="${idx}"]\`);
+      const inp=tag.querySelector('.cls-tag-input');
+      doRenameClass(idx, inp.value.trim());
+      return;
+    }
+    if(delBtn){
+      const idx=+delBtn.dataset.cidx;
+      const cls=classes[idx];
+      const studentsInClass=Object.keys(users).filter(u=>users[u].type==='student'&&(users[u].class||'未分班')===cls);
+      const sub=studentsInClass.length?`班級內有 ${studentsInClass.length} 位學生將移至「未分班」`:'此班級目前無學生';
+      showConfirm(`確定刪除班級「${cls}」？`,sub,()=>{
+        studentsInClass.forEach(u=>{ users[u].class='未分班'; });
+        classes.splice(idx,1);
+        saveClasses(); saveUsers(); refreshUserList(); toast(`班級「${cls}」已刪除`,'i');
+      });
+    }
+  });
+}
+
+function doRenameClass(idxOrName, newName){
+  const idx=typeof idxOrName==='number'?idxOrName:classes.indexOf(idxOrName);
+  if(idx===-1){ toast('找不到此班級','e'); return; }
+  const oldName=classes[idx];
+  if(!newName){ toast('班級名稱不可為空','e'); return; }
+  if(newName===oldName){ renderClassTags(); return; }
+  if(classes.includes(newName)){ toast('此班級名稱已存在','e'); return; }
+  classes[idx]=newName;
+  Object.keys(users).forEach(u=>{ if(users[u].class===oldName) users[u].class=newName; });
+  saveClasses(); saveUsers(); refreshUserList();
+  toast(`班級「${oldName}」已更名為「${newName}」`,'s');
 }
 
 function refreshUserList(){
@@ -1365,15 +1457,19 @@ function refreshUserList(){
   });
 
   function memberRow(u, isStudent=false){
-    return `<div class="mi" data-user="${esc(u)}">
-      <div style="display:flex;align-items:center;gap:6px">
-        ${isStudent?`<input type="checkbox" class="member-chk" data-un="${esc(u)}" style="accent-color:var(--gold);width:14px;height:14px">`:''}
-        <span style="font-size:.75rem">${esc(u)}</span>
+    const safeU=esc(u);
+    return `<div class="mi" data-user="${safeU}" id="mrow-${safeU}">
+      <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+        ${isStudent?`<input type="checkbox" class="member-chk" data-un="${safeU}" style="accent-color:var(--gold);width:14px;height:14px;flex-shrink:0">`:''}
+        <span class="mname" style="font-size:.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safeU}</span>
+        <input class="fi mname-input hidden" data-un="${safeU}" style="font-size:.74rem;padding:3px 7px;width:100px;height:24px" value="${safeU}">
       </div>
-      <div class="flex gap6">
-        ${isStudent?`<select class="fs" data-ua="chgclass" data-un="${esc(u)}" style="font-size:.66rem;padding:2px 5px;height:auto;max-width:90px">${classes.map(c=>`<option value="${esc(c)}"${(users[u].class||'未分班')===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:''}
-        <button class="btn bgh bsm" data-ua="reset" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">重置密碼</button>
-        ${u!==ADMIN_NAME?`<button class="btn br bsm" data-ua="del" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">刪除</button>`:''}
+      <div class="flex gap6" style="flex-shrink:0">
+        ${isStudent?`<select class="fs" data-ua="chgclass" data-un="${safeU}" style="font-size:.66rem;padding:2px 5px;height:auto;max-width:80px">${classes.map(c=>`<option value="${esc(c)}"${(users[u].class||'未分班')===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:''}
+        <button class="btn bgh bsm mrename-btn" data-ua="rename" data-un="${safeU}" style="font-size:.65rem;padding:3px 7px" title="改名">✏</button>
+        <button class="btn bb bsm mrename-ok hidden" data-ua="rename-ok" data-un="${safeU}" style="font-size:.65rem;padding:3px 7px">✓</button>
+        <button class="btn bgh bsm" data-ua="reset" data-un="${safeU}" style="font-size:.65rem;padding:3px 7px">重置密碼</button>
+        ${u!==ADMIN_NAME?`<button class="btn br bsm" data-ua="del" data-un="${safeU}" style="font-size:.65rem;padding:3px 7px">刪除</button>`:''}
       </div>
     </div>`;
   }
@@ -1391,15 +1487,18 @@ function refreshUserList(){
   // Students by class
   const scg=G('studentClassGroups'); if(!scg) return;
   const totalStudents=Object.values(studentByClass).reduce((s,a)=>s+a.length,0);
-  scg.innerHTML=classes.map(cls=>{
+  scg.innerHTML=classes.map((cls,clsIdx)=>{
     const arr=studentByClass[cls]||[];
     return `<details open style="background:var(--bg4);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:8px">
-      <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--blue2);font-weight:500;list-style:none;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span>▼ 學生 · ${esc(cls)}</span>
+      <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--blue);font-weight:500;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+          <span class="cls-grp-name" data-gcidx="${clsIdx}">▼ 學生 · ${esc(cls)}</span>
+          <input class="fi cls-grp-input hidden" data-gcidx="${clsIdx}" value="${esc(cls)}" style="font-size:.73rem;padding:2px 7px;height:24px;width:110px;flex-shrink:0;font-family:'Noto Sans TC',sans-serif">
           <span class="mbadge mbs" style="font-size:.6rem">${arr.length}</span>
         </div>
         <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+          ${cls!=='未分班'?`<button class="btn bgh bsm cls-grp-edit" data-gcidx="${clsIdx}" style="font-size:.62rem;padding:2px 7px">✏ 改名</button>
+          <button class="btn bb bsm cls-grp-save hidden" data-gcidx="${clsIdx}" style="font-size:.62rem;padding:2px 7px">✓ 儲存</button>`:''}
           <button class="btn bgh bsm" data-cls-selall="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">全選</button>
           <button class="btn br bsm" data-cls-delsel="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">刪除已選</button>
         </div>
@@ -1415,14 +1514,88 @@ function refreshUserList(){
   renderClassTags();
 }
 
+function cancelRename(oldName){
+  const row=document.getElementById('mrow-'+oldName); if(!row) return;
+  row.querySelector('.mname').classList.remove('hidden');
+  row.querySelector('.mname-input').classList.add('hidden');
+  row.querySelector('.mrename-btn').classList.remove('hidden');
+  row.querySelector('.mrename-ok').classList.add('hidden');
+}
+
+function doRename(oldName){
+  const row=document.getElementById('mrow-'+oldName); if(!row) return;
+  const inp=row.querySelector('.mname-input');
+  const newName=inp.value.trim();
+  if(!newName){ toast('姓名不可為空','e'); return; }
+  if(newName===oldName){ cancelRename(oldName); return; }
+  if(users[newName]){ toast('此姓名已存在','e'); return; }
+  // Copy user data to new key
+  users[newName]={...users[oldName]};
+  delete users[oldName];
+  // Update sysData bookings
+  Object.keys(sysData).forEach(dateKey=>{
+    Object.keys(sysData[dateKey]||{}).forEach(room=>{
+      Object.keys(sysData[dateKey][room]||{}).forEach(time=>{
+        const slot=sysData[dateKey][room][time];
+        if(slot&&slot.name===oldName) slot.name=newName;
+      });
+    });
+  });
+  // Update logs
+  logs.forEach(l=>{ if(l&&l.booker===oldName) l.booker=newName; });
+  // Update notifs
+  if(notifs[oldName]){ notifs[newName]=notifs[oldName]; delete notifs[oldName]; }
+  // Update session if renaming self
+  if(curUser===oldName){ curUser=newName; lss('jj_curUser',newName); G('pillName').textContent=newName; }
+  saveUsers(); saveData(); saveLogs(); saveNotifs();
+  refreshUserList(); toast(`已將「${oldName}」改名為「${newName}」`,'s');
+}
+
 // Event delegation for member actions across all lists
 document.addEventListener('click',ev=>{
-  // member reset/del
+  // member reset/del/rename
   const btn=ev.target.closest('[data-ua]');
   if(btn && (G('listAdmin')?.contains(btn)||G('listTeacher')?.contains(btn)||G('studentClassGroups')?.contains(btn))){
     const u=btn.dataset.un, a=btn.dataset.ua;
+    if(a==='rename'){
+      // Toggle to edit mode
+      const row=document.getElementById('mrow-'+u); if(!row) return;
+      row.querySelector('.mname').classList.add('hidden');
+      const inp=row.querySelector('.mname-input'); inp.classList.remove('hidden'); inp.focus(); inp.select();
+      row.querySelector('.mrename-btn').classList.add('hidden');
+      row.querySelector('.mrename-ok').classList.remove('hidden');
+      inp.onkeydown=e=>{ if(e.key==='Enter') doRename(u); if(e.key==='Escape') cancelRename(u); };
+      return;
+    }
+    if(a==='rename-ok'){ doRename(u); return; }
     if(a==='reset'){ users[u].pwd='000'; saveUsers(); toast(`${u} 密碼已重置為 000`,'s'); }
     if(a==='del') showConfirm(`確定刪除成員「${u}」？`,'',()=>{ delete users[u]; saveUsers(); refreshUserList(); toast('成員已刪除','i'); });
+    return;
+  }
+  // class group rename (in student list header)
+  const cge=ev.target.closest('.cls-grp-edit');
+  if(cge){
+    ev.stopPropagation();
+    const idx=+cge.dataset.gcidx;
+    const summary=cge.closest('summary');
+    const nameSpan=summary.querySelector('.cls-grp-name');
+    const inp=summary.querySelector('.cls-grp-input');
+    const saveBtn=summary.querySelector('.cls-grp-save');
+    if(nameSpan) nameSpan.classList.add('hidden');
+    if(inp){ inp.classList.remove('hidden'); inp.value=classes[idx]||''; inp.focus(); inp.select();
+      inp.onkeydown=e=>{ e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); doRenameClass(idx,inp.value.trim()); } if(e.key==='Escape') refreshUserList(); };
+    }
+    cge.classList.add('hidden');
+    if(saveBtn) saveBtn.classList.remove('hidden');
+    return;
+  }
+  const cgs=ev.target.closest('.cls-grp-save');
+  if(cgs){
+    ev.stopPropagation();
+    const idx=+cgs.dataset.gcidx;
+    const summary=cgs.closest('summary');
+    const inp=summary.querySelector('.cls-grp-input');
+    doRenameClass(idx, inp?inp.value.trim():classes[idx]);
     return;
   }
   // select all in class
@@ -1713,5 +1886,6 @@ async function appBoot(){
 </script>
 </body>
 </html>
+
 
 
