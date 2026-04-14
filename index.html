@@ -508,6 +508,53 @@ thead th.rl { z-index:12; }
   <div class="mf"><button id="cpSkip" class="btn bgh bsm" data-close>稍後再說</button><button class="btn bg" id="confirmCpBtn">確認修改</button></div>
 </div>
 
+
+<div class="modal" id="adminWriteModal" style="width:480px">
+  <div class="mh">
+    <div class="mt" style="color:var(--gold2)">👤 管理員代填預約</div>
+    <button class="mc" data-close>×</button>
+  </div>
+  <div class="mb">
+    <div class="ib" id="adminWriteInfo"></div>
+    <div class="fg"><label class="fl">預約人姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteName" class="fi" placeholder="請輸入預約人姓名（不限系統成員）" autocomplete="off"></div>
+    <div class="fg"><label class="fl">備注類型</label>
+      <select id="adminWriteNoteSelect" class="fs">
+        <option value="自主練習">自主練習</option>
+        <option value="主副修課">主副修課</option>
+        <option value="配伴奏">配伴奏</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div id="adminWriteLessonWrap" class="hidden flex gap8">
+      <div class="fg flex1"><label class="fl">授課老師</label><input id="adminWriteLessonTeacher" class="fi" placeholder="例：王老師"></div>
+      <div class="fg flex1"><label class="fl">課程樂器</label><input id="adminWriteLessonInstrument" class="fi" placeholder="例：鋼琴"></div>
+    </div>
+    <div id="adminWriteNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="adminWriteNoteOther" class="fi" placeholder="請輸入備注"></div>
+    <div id="adminWriteErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf">
+    <button class="btn bgh bsm" data-close>取消</button>
+    <button class="btn bg" id="confirmAdminWriteBtn">✓ 確認填寫</button>
+  </div>
+</div>
+
+<div class="modal" id="editFixedModal" style="width:480px">
+  <div class="mh">
+    <div class="mt" style="color:var(--gold2)">✏️ 修改固定排課</div>
+    <button class="mc" data-close>×</button>
+  </div>
+  <div class="mb">
+    <div class="ib" id="editFixedInfo"></div>
+    <div class="fg"><label class="fl">排課主題 / 預約人 <span style="color:var(--red2)">*</span></label><input id="editFixedTeacher" class="fi" placeholder="例：王老師鋼琴課"></div>
+    <div class="fg"><label class="fl">備注（選填）</label><input id="editFixedRemark" class="fi" placeholder="例：請勿移動樂器"></div>
+    <div id="editFixedErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf">
+    <button class="btn bgh bsm" data-close>取消</button>
+    <button class="btn bg" id="confirmEditFixedBtn">✓ 確認修改</button>
+  </div>
+</div>
+
 <div class="tw" id="toastWrap"></div>
 
 <script>
@@ -717,7 +764,7 @@ function closeModal(id){ const el=G(id); if(el) el.style.display='none'; }
 function closeModals(){
   if(forcePwdChange) return;
   G('overlay').style.display='none';
-  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal'].forEach(id=>closeModal(id));
+  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal','adminWriteModal','editFixedModal'].forEach(id=>closeModal(id));
 }
 function showMErr(id,msg){ const e=G(id); e.textContent=msg; e.classList.remove('hidden'); }
 
@@ -988,20 +1035,30 @@ function confirmRename(i){
 // ═══════════════════════════════════
 function makeAdminActionBtns(key, room, time, d) {
   const wrap = document.createElement('div');
-  wrap.style.cssText = "display:flex; width:100%; gap:4px; margin-top:4px;";
-  
+  wrap.style.cssText = "display:flex; width:100%; gap:3px; margin-top:4px; flex-wrap:wrap;";
+
+  const b0 = document.createElement('button');
+  b0.innerHTML = '👤';
+  b0.title = '管理員代填預約人';
+  b0.className = 'btn bgh';
+  b0.style.cssText = "flex:1; padding:2px 0; font-size:0.75rem; border-color:var(--gold); color:var(--gold2); border-radius:4px;";
+  b0.onclick = (e) => { e.stopPropagation(); openAdminWriteModal(key, room, time, d); };
+
   const b1 = document.createElement('button');
-  b1.innerHTML = '✏️ 修改';
+  b1.innerHTML = '✏️';
+  b1.title = '修改備注';
   b1.className = 'btn bgh';
-  b1.style.cssText = "flex:1; padding:2px 0; font-size:0.65rem; border-color:var(--blue); color:var(--blue); border-radius:4px;";
+  b1.style.cssText = "flex:1; padding:2px 0; font-size:0.75rem; border-color:var(--blue); color:var(--blue); border-radius:4px;";
   b1.onclick = (e) => { e.stopPropagation(); openEditBookModal(key, room, time, d); };
 
   const b2 = document.createElement('button');
-  b2.innerHTML = '✕ 取消';
+  b2.innerHTML = '✕';
+  b2.title = '取消預約';
   b2.className = 'btn bgh';
-  b2.style.cssText = "flex:1; padding:2px 0; font-size:0.65rem; border-color:var(--red2); color:var(--red2); border-radius:4px;";
+  b2.style.cssText = "flex:1; padding:2px 0; font-size:0.75rem; border-color:var(--red2); color:var(--red2); border-radius:4px;";
   b2.onclick = (e) => { e.stopPropagation(); openDeleteModal(key, room, time); };
 
+  wrap.appendChild(b0);
   wrap.appendChild(b1);
   wrap.appendChild(b2);
   return wrap;
@@ -1103,7 +1160,16 @@ function updateBoard(){
           else {
             slot.className='slot sf';
             slot.innerHTML='<span style="font-size:.9rem">＋</span>';
-            slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } openBookModal(room,time,null); });
+            slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } if(!isAdmin) openBookModal(room,time,null); });
+            if(isAdmin){
+              const awBtn=document.createElement('button');
+              awBtn.innerHTML='👤';
+              awBtn.title='管理員代填預約';
+              awBtn.className='btn bgh';
+              awBtn.style.cssText='padding:2px 6px;font-size:0.75rem;border-color:var(--gold);color:var(--gold2);border-radius:4px;margin-top:4px;width:90%;';
+              awBtn.onclick=(e)=>{e.stopPropagation();openAdminWriteModal(ds,room,time,null);};
+              slot.appendChild(awBtn);
+            }
           }
         }
 
@@ -1150,7 +1216,18 @@ function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">前一日開放</span>`;
   }
   if(isAdmin&&!isPast) {
-    slot.appendChild(makeAdminSetBtn(key, room, time, fixedD, '移除排課'));
+    const fwrap=document.createElement('div');
+    fwrap.style.cssText='display:flex;width:100%;gap:4px;margin-top:4px;';
+    const feBtn=document.createElement('button');
+    feBtn.innerHTML='✏️ 修改';
+    feBtn.className='btn bgh';
+    feBtn.style.cssText='flex:1;padding:2px 0;font-size:0.62rem;border-color:var(--blue);color:var(--blue);border-radius:4px;';
+    feBtn.onclick=(e)=>{e.stopPropagation();openEditFixedModal(key,room,time,fixedD);};
+    const fdBtn=makeAdminSetBtn(key,room,time,fixedD,'移除排課');
+    fdBtn.style.cssText='flex:1;padding:2px 0;font-size:0.62rem;border-color:var(--red2);color:var(--red2);border-radius:4px;width:auto;margin-top:0;';
+    fwrap.appendChild(feBtn);
+    fwrap.appendChild(fdBtn);
+    slot.appendChild(fwrap);
   }
 }
 
@@ -1330,6 +1407,86 @@ G('confirmEditBookBtn').addEventListener('click',()=>{
   if(isAdmin) refreshAdminLog();
   toast('預約備注已修改','s');
 });
+// ═══════════════════════════════════
+// ADMIN WRITE MODAL (代填預約)
+// ═══════════════════════════════════
+function openAdminWriteModal(dateKey,room,time,existingD){
+  if(!isAdmin) return;
+  pending={key:String(dateKey),room,time};
+  const ds=G('viewDate').value;
+  const dow=new Date(ds+'T00:00:00').getDay();
+  const dl=/^\d$/.test(String(dateKey))?`每週固定（週${DAYS[+dateKey]}）`:dateKey;
+  G('adminWriteInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期／時段</span><span class="ilv">${esc(dl)} ${time}</span></div>
+    ${existingD&&existingD.name?`<div class="ir"><span class="ila">目前預約人</span><span class="ilv" style="color:var(--tx3)">${esc(existingD.name)}</span></div>`:''}`;
+  G('adminWriteName').value=existingD?.name||'';
+  const note=existingD?.note||'';
+  let sv='自主練習';
+  if(note.startsWith('主副修課')) sv='主副修課';
+  else if(note==='配伴奏') sv='配伴奏';
+  else if(note!==''&&note!=='自主練習') sv='other';
+  G('adminWriteNoteSelect').value=sv;
+  toggle('adminWriteLessonWrap',sv==='主副修課');
+  toggle('adminWriteNoteOtherWrap',sv==='other');
+  if(sv==='主副修課'){const p=note.split('・');G('adminWriteLessonTeacher').value=p[1]||'';G('adminWriteLessonInstrument').value=p[2]||'';}
+  if(sv==='other') G('adminWriteNoteOther').value=note;
+  hide('adminWriteErr');
+  openModal('adminWriteModal');
+}
+G('adminWriteNoteSelect').addEventListener('change',function(){
+  toggle('adminWriteLessonWrap',this.value==='主副修課');
+  toggle('adminWriteNoteOtherWrap',this.value==='other');
+});
+G('confirmAdminWriteBtn').addEventListener('click',()=>{
+  const {key,room,time}=pending;
+  const name=V('adminWriteName');
+  if(!name){showMErr('adminWriteErr','請填寫預約人姓名');return;}
+  let note=G('adminWriteNoteSelect').value;
+  if(note==='主副修課'){const t=V('adminWriteLessonTeacher'),ins=V('adminWriteLessonInstrument');if(!t||!ins){showMErr('adminWriteErr','請填寫授課老師與課程樂器');return;}note=`主副修課・${t}・${ins}`;}
+  else if(note==='other'){note=V('adminWriteNoteOther');if(!note){showMErr('adminWriteErr','請填寫備注內容');return;}}
+  const ds=G('viewDate').value;
+  if(!sysData[ds])sysData[ds]={};
+  if(!sysData[ds][room])sysData[ds][room]={};
+  const utype=users[name]?.type||'student';
+  sysData[ds][room][time]={name,note,type:'book',userType:utype};
+  addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 代填預約 ${room} ${ds} ${time}（${name}・${note}）`,cancellable:false});
+  saveData();closeModals();updateBoard();refreshAdminLog();
+  toast(`✅ 已代填：${name} · ${room} · ${time}`,'s');
+});
+
+// ═══════════════════════════════════
+// EDIT FIXED SLOT (管理員修改固定排課)
+// ═══════════════════════════════════
+function openEditFixedModal(key,room,time,fixedD){
+  if(!isAdmin) return;
+  pending={key:String(key),room,time};
+  const dl=/^\d$/.test(String(key))?`每週固定（週${DAYS[+key]}）`:key;
+  G('editFixedInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期/星期</span><span class="ilv">${esc(dl)} ${time}</span></div>
+    <div class="ir"><span class="ila">目前主題</span><span class="ilv">${esc(fixedD.teacher||fixedD.note||'—')}</span></div>`;
+  const raw=fixedD.teacher||fixedD.note||'';
+  const parts=raw.split('・');
+  G('editFixedTeacher').value=parts[0]||'';
+  G('editFixedRemark').value=parts.slice(1).join('・')||fixedD.remark||'';
+  hide('editFixedErr');
+  openModal('editFixedModal');
+}
+G('confirmEditFixedBtn').addEventListener('click',()=>{
+  const {key,room,time}=pending;
+  const d=sysData[key]?.[room]?.[time];
+  if(!d){closeModals();return;}
+  const teacher=V('editFixedTeacher');
+  if(!teacher){showMErr('editFixedErr','請填寫主題');return;}
+  const remark=V('editFixedRemark');
+  const label=teacher+(remark?'・'+remark:'');
+  d.teacher=label; d.remark=remark||'';
+  addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 修改固定排課 ${room} ${key} ${time} → ${label}`,cancellable:false});
+  saveData();closeModals();updateBoard();refreshAdminLog();
+  toast('固定排課已修改','s');
+});
+
 // ═══════════════════════════════════
 // SCHEDULE SETTINGS
 // ═══════════════════════════════════
@@ -1775,16 +1932,30 @@ async function saveRules(){ lss('jj_rules',G('adminRulesText').value);
 // ═══════════════════════════════════
 async function appBoot(){
   if(fbMode) await loadFromFirebase();
-  // Show board for all visitors (no login required)
   const td=todayStr();
   G('viewDate').value=td;
   G('viewDate').min=td;
+  // ── 依目前時間自動切換至對應時段 ──
+  autoSetBoardView();
   rebuildHeader();
   updateBoard();
   loadRulesNotice();
   restoreSession();
   scheduleCleanup();
-  // start rolling cleanup
+}
+
+// 根據當前時間自動選擇上午／下午／放學後
+function autoSetBoardView(){
+  const h=new Date().getHours();
+  let view,label;
+  if(h>=17){view='ev';label='17:30–21:30';}
+  else if(h>=13){view='pm';label='13:00–17:30';}
+  else{view='am';label='08:00–13:00';}
+  boardView=view;
+  G('btnAM').className='btn '+(view==='am'?'bg':'bgh')+' bsm';
+  G('btnPM').className='btn '+(view==='pm'?'bg':'bgh')+' bsm';
+  G('btnEV').className='btn '+(view==='ev'?'bg':'bgh')+' bsm';
+  G('viewRangeLabel').textContent=label;
 }
 </script>
 </body>
