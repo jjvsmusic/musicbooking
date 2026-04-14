@@ -101,19 +101,20 @@ nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shado
 .leg{display:flex;align-items:center;gap:5px;font-size:.65rem;color:var(--tx3)}
 .ldot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 
-/* ── TABLE ── */
+/* ── TABLE (含凍結窗格) ── */
 .table-outer{border-radius:12px;border:none;overflow:hidden;background:var(--bg2);box-shadow:var(--sh);}
-.table-scroll{overflow-x:auto}
+.table-scroll{overflow:auto; max-height:68vh;}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
-thead th{background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center}
+thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
 tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
 tbody tr:last-child td{border-bottom:none}
 tbody td:last-child,thead th:last-child{border-right:none}
-.rl{background:var(--bg3);position:sticky;left:0;z-index:100;min-width:96px;width:96px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 5px;vertical-align:middle}
+.rl{background:var(--bg3);position:sticky;left:0;z-index:11;min-width:96px;width:96px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 5px;vertical-align:middle}
+thead th.rl { z-index:12; }
 
 /* ── SLOT ── */
 .cell{position:relative;width:100%;height:100%;min-height:52px;display:flex;align-items:stretch}
-.slot{flex:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.65rem;font-weight:500;transition:all .15s;overflow:hidden;padding:3px 4px;text-align:center;position:relative;cursor:pointer}
+.slot{flex:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.65rem;font-weight:500;transition:all .15s;overflow:hidden;padding:4px;text-align:center;position:relative;cursor:pointer}
 .sf{background:rgba(40,160,96,.07);border:1px solid rgba(40,160,96,.18);color:var(--tx3)}.sf:hover{background:rgba(40,160,96,.2);border-color:var(--grn2);color:var(--grn2)}
 .sb{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;border:none}
 .st{background:linear-gradient(135deg,var(--pur),var(--pur2));color:#fff;border:none}
@@ -125,10 +126,6 @@ tbody td:last-child,thead th:last-child{border-right:none}
 .sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%;line-height:1.3}
 .snote{font-size:.54rem;opacity:.8;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%}
 .fhint{position:absolute;bottom:2px;right:3px;font-size:.54rem;color:rgba(212,175,55,.5);pointer-events:none}
-.qdel{display:none;position:absolute;top:3px;right:3px;background:var(--red);color:#fff;border:none;border-radius:0 5px 0 5px;width:18px;height:18px;font-size:.7rem;cursor:pointer;z-index:20;line-height:18px;text-align:center;padding:0;font-weight:700}
-.is-admin .qdel{display:block}
-.qedit{display:none;position:absolute;top:3px;left:3px;background:var(--blue);color:#fff;border:none;border-radius:5px 0 5px 0;width:18px;height:18px;font-size:.65rem;cursor:pointer;z-index:20;line-height:18px;text-align:center;padding:0;}
-.is-admin .qedit{display:block}
 
 /* ── ADMIN GRID ── */
 .agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
@@ -987,72 +984,138 @@ function confirmRename(i){
 }
 
 // ═══════════════════════════════════
+// HELPER: ADMIN QUICK BUTTONS
+// ═══════════════════════════════════
+function makeAdminActionBtns(key, room, time, d) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = "display:flex; width:100%; gap:4px; margin-top:4px;";
+  
+  const b1 = document.createElement('button');
+  b1.innerHTML = '✏️ 修改';
+  b1.className = 'btn bgh';
+  b1.style.cssText = "flex:1; padding:2px 0; font-size:0.65rem; border-color:var(--blue); color:var(--blue); border-radius:4px;";
+  b1.onclick = (e) => { e.stopPropagation(); openEditBookModal(key, room, time, d); };
+
+  const b2 = document.createElement('button');
+  b2.innerHTML = '✕ 取消';
+  b2.className = 'btn bgh';
+  b2.style.cssText = "flex:1; padding:2px 0; font-size:0.65rem; border-color:var(--red2); color:var(--red2); border-radius:4px;";
+  b2.onclick = (e) => { e.stopPropagation(); openDeleteModal(key, room, time); };
+
+  wrap.appendChild(b1);
+  wrap.appendChild(b2);
+  return wrap;
+}
+
+function makeAdminSetBtn(key, room, time, d, label) {
+  const btn = document.createElement('button');
+  btn.innerHTML = '✕ ' + label;
+  btn.className = 'btn bgh';
+  btn.style.cssText = "width:90%; margin-top:4px; padding:2px 0; font-size:0.65rem; border-color:var(--red2); color:var(--red2); border-radius:4px;";
+  btn.onclick = (e) => { e.stopPropagation(); adminQuickDel(String(key), room, time); };
+  return btn;
+}
+
+function adminQuickDel(key,room,time){
+  if(!isAdmin) return;
+  const d=sysData[key]?.[room]?.[time];
+  if(!d) return;
+  if(d.type==='lock'||d.type==='fixed'){
+    addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}（${d.teacher||d.note||'—'}）`,cancellable:false});
+    delete sysData[key][room][time]; saveData(); updateBoard();
+    if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
+  } else {
+    openDeleteModal(key,room,time);
+  }
+}
+
+// ═══════════════════════════════════
 // BOARD
 // ═══════════════════════════════════
 function updateBoard(){
-  const ds=G('viewDate').value; if(!ds) return;
-  const dow=new Date(ds+'T00:00:00').getDay();
-  const dowKey=String(dow);
-  G('dayDisplay').textContent='週'+DAYS[dow];
-  rebuildHeader();
-  const body=G('boardBody'); body.innerHTML='';
-  const today=todayStr(); const now=new Date();
-  const maxD=maxDateStr();
-  const vis=getVis();
-  const yesterday=yesterdayOf(ds);
+  try {
+    let ds = G('viewDate').value;
+    // 防呆：日期若空則帶入今日
+    if(!ds) { ds = todayStr(); G('viewDate').value = ds; }
+    // 防呆：琴房清單遺失時恢復預設
+    if(!Array.isArray(rooms) || rooms.length === 0) rooms = DEFAULT_ROOMS;
 
-  rooms.forEach(room=>{
-    const tr=document.createElement('tr');
-    const rl=document.createElement('td'); rl.className='rl'; rl.textContent=room; tr.appendChild(rl);
+    const dow=new Date(ds+'T00:00:00').getDay();
+    if(isNaN(dow)) return;
+    const dowKey=String(dow);
+    
+    G('dayDisplay').textContent='週'+DAYS[dow];
+    rebuildHeader();
+    const body=G('boardBody'); body.innerHTML='';
+    const today=todayStr(); const now=new Date();
+    const maxD=maxDateStr();
+    const vis=getVis();
+    if(!vis || vis.length === 0) return;
+    const yesterday=yesterdayOf(ds);
 
-    vis.forEach(time=>{
-      const td=document.createElement('td');
-      const cell=document.createElement('div'); cell.className='cell';
-      const [h,m]=time.split(':').map(Number);
-      const isPast=ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes()));
-      const outRange=ds<today||ds>maxD;
+    rooms.forEach(room=>{
+      const tr=document.createElement('tr');
+      const rl=document.createElement('td'); rl.className='rl'; rl.textContent=room; tr.appendChild(rl);
 
-      const bookD =sysData[ds]?.[room]?.[time];
-      const fixedD=sysData[dowKey]?.[room]?.[time];
+      vis.forEach(time=>{
+        const td=document.createElement('td');
+        const cell=document.createElement('div'); cell.className='cell';
+        const [h,m]=time.split(':').map(Number);
+        const isPast=ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes()));
+        const outRange=ds<today||ds>maxD;
 
-      const slot=document.createElement('div');
+        const bookD = sysData[ds]?.[room]?.[time];
+        const fixedD= sysData[dowKey]?.[room]?.[time];
 
-      if(bookD){
-        if(bookD.type==='lock'){
-          slot.className='slot sk'+(isPast?' past':'');
-          slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
-          if(isAdmin&&!isPast) cell.appendChild(makeQdel(ds,room,time));
-        } else if(bookD.type==='fixed'){
-          // CSV-imported fixed with date — still bookable
-          buildFixedSlot(slot,cell,bookD,ds,room,time,isPast,outRange,yesterday,today);
+        const slot=document.createElement('div');
+
+        if(bookD){
+          if(bookD.type==='lock'){
+            slot.className='slot sk'+(isPast?' past':'');
+            slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
+            if(isAdmin&&!isPast) slot.appendChild(makeAdminSetBtn(ds,room,time,bookD, '解除封鎖'));
+          } else if(bookD.type==='fixed'){
+            // CSV-imported fixed with date — still bookable
+            buildFixedSlot(slot,cell,bookD,ds,room,time,isPast,outRange,yesterday,today);
+          } else {
+            // Regular booking
+            const isT=users[bookD.name]?.type==='teacher'||users[bookD.name]?.type==='admin';
+            slot.className='slot '+(isT?'st':'sb')+(isPast?' past':'');
+            slot.innerHTML=`<span class="sn">${esc(bookD.name)}</span><span class="snote">${esc(bookD.note||'')}</span>`;
+            
+            if(!isPast&&(bookD.name===curUser && !isAdmin)) {
+              slot.addEventListener('click',()=>openDeleteModal(ds,room,time));
+            }
+            
+            if(isAdmin && !isPast) {
+               slot.appendChild(makeAdminActionBtns(ds,room,time,bookD));
+            } else if (!isPast && bookD.name===curUser) {
+               const hint = document.createElement('div');
+               hint.style.cssText = "font-size:0.5rem; opacity:0.8; margin-top:2px;";
+               hint.textContent = "(點擊可取消)";
+               slot.appendChild(hint);
+            }
+          }
+        } else if(fixedD&&fixedD.type==='fixed'){
+          buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
         } else {
-          // Regular booking
-          const isT=users[bookD.name]?.type==='teacher'||users[bookD.name]?.type==='admin';
-          slot.className='slot '+(isT?'st':'sb')+(isPast?' past':'');
-          slot.innerHTML=`<span class="sn">${esc(bookD.name)}</span><span class="snote">${esc(bookD.note||'')}</span>`;
-          if(!isPast&&(isAdmin||bookD.name===curUser))
-            slot.addEventListener('click',()=>openDeleteModal(ds,room,time));
-          if(!isPast) {
-             cell.appendChild(makeQdel(ds,room,time));
-             if(isAdmin) cell.appendChild(makeQedit(ds,room,time,bookD));
+          if(isPast||outRange){ slot.className='slot sf past'; slot.innerHTML='<span>—</span>'; }
+          else {
+            slot.className='slot sf';
+            slot.innerHTML='<span style="font-size:.9rem">＋</span>';
+            slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } openBookModal(room,time,null); });
           }
         }
-      } else if(fixedD&&fixedD.type==='fixed'){
-        buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
-      } else {
-        if(isPast||outRange){ slot.className='slot sf past'; slot.innerHTML='<span>—</span>'; }
-        else {
-          slot.className='slot sf';
-          slot.innerHTML='<span style="font-size:.9rem">＋</span>';
-          slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } openBookModal(room,time,null); });
-        }
-      }
 
-      cell.appendChild(slot);
-      td.appendChild(cell); tr.appendChild(td);
+        cell.appendChild(slot);
+        td.appendChild(cell); tr.appendChild(td);
+      });
+      body.appendChild(tr);
     });
-    body.appendChild(tr);
-  });
+  } catch(err) {
+    console.error('Board rendering error:', err);
+    toast('看板讀取發生異常，請重新整理頁面','e');
+  }
 }
 
 // ── FIXED SLOT RENDERING with booking rules ──
@@ -1086,39 +1149,8 @@ function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday
     slot.className='slot sr';
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">前一日開放</span>`;
   }
-  if(isAdmin&&!isPast) cell.appendChild(makeQdel(key,room,time));
-}
-
-function makeQdel(key,room,time){
-  const btn=document.createElement('button');
-  btn.className='qdel'; btn.textContent='×';
-  btn.addEventListener('click',ev=>{
-    ev.stopPropagation();
-    adminQuickDel(String(key),room,time);
-  });
-  return btn;
-}
-
-function makeQedit(key,room,time,d){
-  const btn=document.createElement('button');
-  btn.className='qedit'; btn.textContent='✏️';
-  btn.addEventListener('click',ev=>{
-    ev.stopPropagation();
-    openEditBookModal(key,room,time,d);
-  });
-  return btn;
-}
-
-function adminQuickDel(key,room,time){
-  if(!isAdmin) return;
-  const d=sysData[key]?.[room]?.[time];
-  if(!d) return;
-  if(d.type==='lock'||d.type==='fixed'){
-    addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}（${d.teacher||d.note||'—'}）`,cancellable:false});
-    delete sysData[key][room][time]; saveData(); updateBoard();
-    if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
-  } else {
-    openDeleteModal(key,room,time);
+  if(isAdmin&&!isPast) {
+    slot.appendChild(makeAdminSetBtn(key, room, time, fixedD, '移除排課'));
   }
 }
 
@@ -1381,7 +1413,6 @@ function refreshUserList(){
   const lbl={admin:'管理員',teacher:'教師',student:'學生'};
   const groups={admin:[],teacher:{}};
   // Group students by class
-  classes.forEach(c=>{ groups.teacher; });
   // ensure admin/teacher arrays exist
   const adminList=[], teacherList=[];
   const studentByClass={};
