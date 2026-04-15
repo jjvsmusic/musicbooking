@@ -105,7 +105,7 @@ nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shado
 .table-outer{border-radius:12px;border:none;overflow:hidden;background:var(--bg2);box-shadow:var(--sh);}
 .table-scroll{overflow:auto; max-height:68vh;}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
-thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:6px 2px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03);width:58px;min-width:58px;max-width:58px;white-space:normal;line-height:1.3}
+thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:6px 2px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03);width:58px;min-width:58px;max-width:58px;white-space:nowrap;line-height:1.3}
 tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
 tbody tr:last-child td{border-bottom:none}
 tbody td:last-child,thead th:last-child{border-right:none}
@@ -280,6 +280,7 @@ thead th.rl { z-index:12; }
       <div class="fbar">
         <span class="txs txm">日期</span>
         <input type="date" id="viewDate" class="date-input">
+        <button class="btn bgh bsm" id="btnToday" style="padding:4px 10px;font-size:.72rem;white-space:nowrap">今日</button>
         <span id="dayDisplay" class="day-badge"></span>
         
         <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -738,7 +739,14 @@ function show(id){ const e=G(id); if(e) e.classList.remove('hidden'); }
 function hide(id){ const e=G(id); if(e) e.classList.add('hidden'); }
 function toggle(id,c){ c?show(id):hide(id); }
 function V(id){ const e=G(id); return e?e.value.trim():''; }
-function maxDateStr(){ const a=(users[curUser]?.type==='teacher'||isAdmin)?14:2; const d=new Date(); d.setDate(d.getDate()+a); return dateStr(d); }
+function maxDateStr(){
+  // 管理員/教師：可預約未來 14 天；學生：2 天；未登入：可查看 7 天（唯讀）
+  let a;
+  if(!curUser) a=7;
+  else if(users[curUser]?.type==='teacher'||isAdmin) a=14;
+  else a=2;
+  const d=new Date(); d.setDate(d.getDate()+a); return dateStr(d);
+}
 function getVis(){
   if(boardView==='am') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return h>=8&&(h<13); });
   if(boardView==='pm') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h>=13)&&(h<17||(h===17&&m===0)); });
@@ -874,6 +882,7 @@ function enterApp(name){
   G('boardPage').classList.add('active'); G('adminPage').classList.remove('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
   G('viewDate').value=todayStr();
+  // 不設定 min，讓使用者可查看過去日期（過去時段為 past/唯讀）
   autoSetBoardView();
   initUI(); updateBoard();
   if(isAdmin) initAdminUI();
@@ -890,6 +899,8 @@ function doLogout(){
   G('boardPage').classList.add('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
   G('loginName').value=''; G('loginPwd').value='';
+  G('viewDate').value=todayStr();
+  autoSetBoardView();
   updateBoard();
 }
 function showLoginErr(msg){ const e=G('loginErr'); e.textContent=msg; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),3200); }
@@ -966,8 +977,7 @@ function initUI(){
 function rebuildHeader(){
   const h=G('timeHeader'); if(!h) return;
   h.innerHTML='<th class="rl" style="width:72px;min-width:72px">琴房</th>'+getVis().map(t=>{
-    const parts=t.split(':');
-    return `<th style="color:var(--red2);font-weight:500;width:58px;min-width:58px;max-width:58px"><div style="font-size:.72rem">${parts[0]}</div><div style="font-size:.6rem">:${parts[1]}</div></th>`;
+    return `<th style="color:var(--red2);font-weight:500;width:58px;min-width:58px;max-width:58px;white-space:nowrap"><span style="font-size:.7rem">${t}</span></th>`;
   }).join('');
 }
 function initAdminUI(){
@@ -1157,8 +1167,8 @@ function updateBoard(){
         const td=document.createElement('td');
         const cell=document.createElement('div'); cell.className='cell';
         const [h,m]=time.split(':').map(Number);
-        const isPast=ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes()));
-        const outRange=ds<today||ds>maxD;
+        const isPast=(ds<today)||(ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes())));
+        const outRange=ds>maxD;
 
         const bookD = sysData[ds]?.[room]?.[time];
         const fixedD= sysData[dowKey]?.[room]?.[time];
@@ -1198,21 +1208,23 @@ function updateBoard(){
           if(isPast||outRange){ slot.className='slot sf past'; slot.innerHTML='<span>—</span>'; }
           else {
             slot.className='slot sf';
-            slot.innerHTML='<span style="font-size:.9rem">＋</span>';
-            slot.addEventListener('click',()=>{
-              if(!curUser){ openLoginModal(); return; }
-              // 管理員點擊空格：直接開啟代填預約視窗
-              if(isAdmin){ openAdminWriteModal(ds,room,time,null); return; }
-              openBookModal(room,time,null);
-            });
             if(isAdmin){
+              // 管理員：顯示 👤 按鈕，點整格或按鈕都觸發代填
+              slot.innerHTML='<span style="font-size:.75rem;opacity:.5">＋</span>';
               const awBtn=document.createElement('button');
-              awBtn.innerHTML='👤';
+              awBtn.innerHTML='👤 代填';
               awBtn.title='管理員代填預約';
               awBtn.className='btn bgh';
-              awBtn.style.cssText='padding:2px 6px;font-size:0.75rem;border-color:var(--gold);color:var(--gold2);border-radius:4px;margin-top:4px;width:90%;';
+              awBtn.style.cssText='padding:2px 6px;font-size:0.7rem;border-color:var(--gold);color:var(--gold2);border-radius:4px;margin-top:3px;width:90%;';
               awBtn.onclick=(e)=>{e.stopPropagation();openAdminWriteModal(ds,room,time,null);};
+              slot.addEventListener('click',()=>openAdminWriteModal(ds,room,time,null));
               slot.appendChild(awBtn);
+            } else {
+              slot.innerHTML='<span style="font-size:.9rem">＋</span>';
+              slot.addEventListener('click',()=>{
+                if(!curUser){ openLoginModal(); return; }
+                openBookModal(room,time,null);
+              });
             }
           }
         }
@@ -1234,9 +1246,10 @@ function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday
   const teacherName=rawTeacher.split('・')[0].trim();
   const isNameMatch=(teacherName===curUser);
   const ds=G('viewDate').value;
-  const allowedFromDate=yesterdayOf(ds);
   const actualToday=todayStr();
-  const withinWindow=(actualToday>=allowedFromDate);
+  // 前一日才開放：今日 >= 預約日的前一天
+  const dayBeforeDs=yesterdayOf(ds);
+  const withinWindow=(actualToday>=dayBeforeDs);
 
   let canBook=false;
   if(!curUser){ canBook=false; } 
@@ -1252,10 +1265,12 @@ function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday
     slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } openBookModal(room,time,fixedD); });
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="fhint">＋</span>`;
   } else if(!curUser){
+    // 未登入：顯示固定排課資訊，點擊引導登入
     slot.className='slot sx';
-    slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="fhint">＋</span>`;
+    slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">登入後可預約</span>`;
     slot.addEventListener('click',()=>openLoginModal());
   } else {
+    // 已登入但尚未到開放日（前一日才開放）
     slot.className='slot sr';
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">前一日開放</span>`;
   }
@@ -1301,7 +1316,7 @@ function openBookModal(room,startTime,fixedD){
     const bD=sysData[ds]?.[room]?.[ts];
     const occ=bD&&bD.type!=='fixed';
     const [hh,mm]=ts.split(':').map(Number);
-    const past=ds===today&&(hh<now.getHours()||(hh===now.getHours()&&mm<=now.getMinutes()));
+    const past=(ds<today)||(ds===today&&(hh<now.getHours()||(hh===now.getHours()&&mm<=now.getMinutes())));
     // Check booking restriction for each fixed slot
     const fixTs=sysData[dowKey]?.[room]?.[ts]||sysData[ds]?.[room]?.[ts];
     let restricted=false;
@@ -1923,8 +1938,23 @@ G('importCsvBtn').addEventListener('click',()=>{
 });
 G('clearFixedBtn').addEventListener('click',()=>{
   showConfirm('確定清除所有固定排課資料？','此操作無法復原',()=>{
+    // 清除 DOW keys (0-6) 中的固定排課
     ['0','1','2','3','4','5','6'].forEach(k=>{ if(sysData[k]) delete sysData[k]; });
-    Object.keys(sysData).forEach(k=>{ if(typeof sysData[k]==='object') Object.keys(sysData[k]).forEach(room=>{ Object.keys(sysData[k][room]||{}).forEach(t=>{ if(sysData[k][room][t]?.type==='fixed') delete sysData[k][room][t]; }); }); });
+    // 清除日期 keys 中 type==='fixed' 的條目（CSV 匯入含日期範圍的固定排課）
+    Object.keys(sysData).forEach(k=>{
+      if(/^\d$/.test(k)) return; // DOW keys 已在上方清除，跳過
+      if(typeof sysData[k]==='object'){
+        Object.keys(sysData[k]).forEach(room=>{
+          Object.keys(sysData[k][room]||{}).forEach(t=>{
+            if(sysData[k][room][t]?.type==='fixed') delete sysData[k][room][t];
+          });
+          // 清空的琴房物件也刪除
+          if(Object.keys(sysData[k][room]||{}).length===0) delete sysData[k][room];
+        });
+        // 清空的日期物件也刪除
+        if(Object.keys(sysData[k]||{}).length===0) delete sysData[k];
+      }
+    });
     saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
   });
 });
@@ -1978,6 +2008,7 @@ G('navBoard').addEventListener('click',()=>showPage('board'));
 G('navAdmin').addEventListener('click',()=>showPage('admin'));
 G('logoutBtn').addEventListener('click',doLogout);
 G('viewDate').addEventListener('change',updateBoard);
+G('btnToday').addEventListener('click',()=>{ G('viewDate').value=todayStr(); autoSetBoardView(); updateBoard(); });
 G('btnAM').addEventListener('click',()=>{ boardView='am'; G('btnAM').className='btn bg bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bgh bsm'; G('viewRangeLabel').textContent='08:00–13:00'; updateBoard(); });
 G('btnPM').addEventListener('click',()=>{ boardView='pm'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bg bsm'; G('btnEV').className='btn bgh bsm'; G('viewRangeLabel').textContent='13:00–17:30'; updateBoard(); });
 G('btnEV').addEventListener('click',()=>{ boardView='ev'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bg bsm'; G('viewRangeLabel').textContent='17:30–21:30'; updateBoard(); });
@@ -2029,7 +2060,8 @@ async function appBoot(){
   if(fbMode) await loadFromFirebase();
   const td=todayStr();
   G('viewDate').value=td;
-  G('viewDate').min=td;
+  // 移除 min 限制，讓所有人都可查看過去日期（過去時段會顯示為 past 狀態）
+  // G('viewDate').min=td;  // 不再限制最小日期
   // ── 依目前時間自動切換至對應時段 ──
   autoSetBoardView();
   rebuildHeader();
@@ -2041,10 +2073,13 @@ async function appBoot(){
 
 // 根據當前時間自動選擇上午／下午／放學後
 function autoSetBoardView(){
-  const h=new Date().getHours();
+  const now=new Date();
+  const h=now.getHours(), mn=now.getMinutes();
+  const totalMin=h*60+mn;
   let view,label;
-  if(h>=17){view='ev';label='17:30–21:30';}
-  else if(h>=13){view='pm';label='13:00–17:30';}
+  // 放學後：17:30 以後；下午：13:00–17:29；上午：其餘
+  if(totalMin>=17*60+30){view='ev';label='17:30–21:30';}
+  else if(totalMin>=13*60){view='pm';label='13:00–17:30';}
   else{view='am';label='08:00–13:00';}
   boardView=view;
   G('btnAM').className='btn '+(view==='am'?'bg':'bgh')+' bsm';
