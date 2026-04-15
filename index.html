@@ -93,10 +93,10 @@ nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shado
 .container{max-width:1600px;margin:0 auto;padding:20px 16px}
 
 /* ── FILTER BAR ── */
-.fbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;box-shadow:var(--sh);}
-.date-input{background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);padding:6px 12px;border-radius:6px;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:.82rem}
+.fbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:7px 12px;margin-bottom:10px;box-shadow:var(--sh);}
+.date-input{background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);padding:4px 8px;border-radius:5px;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:.76rem}
 .date-input:focus{border-color:var(--gold)}
-.day-badge{font-family:'Noto Serif TC',serif;font-weight:600;color:var(--gold2);font-size:.95rem;min-width:42px}
+.day-badge{font-family:"Noto Serif TC",serif;font-weight:600;color:var(--gold2);font-size:.82rem;min-width:36px}
 .legend{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
 .leg{display:flex;align-items:center;gap:5px;font-size:.65rem;color:var(--tx3)}
 .ldot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
@@ -105,11 +105,11 @@ nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shado
 .table-outer{border-radius:12px;border:none;overflow:hidden;background:var(--bg2);box-shadow:var(--sh);}
 .table-scroll{overflow:auto; max-height:68vh;}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
-thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:10px 4px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
+thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:6px 2px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03);width:58px;min-width:58px;max-width:58px;white-space:normal;line-height:1.3}
 tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
 tbody tr:last-child td{border-bottom:none}
 tbody td:last-child,thead th:last-child{border-right:none}
-.rl{background:var(--bg3);position:sticky;left:0;z-index:11;min-width:96px;width:96px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 5px;vertical-align:middle}
+.rl{background:var(--bg3);position:sticky;left:0;z-index:11;min-width:72px;width:72px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 3px;vertical-align:middle;line-height:1.3}
 thead th.rl { z-index:12; }
 
 /* ── SLOT ── */
@@ -403,7 +403,17 @@ thead th.rl { z-index:12; }
               <button class="btn bgh bsm" id="manualCleanupBtn" style="font-size:.68rem">⚙ 立即清理過期資料</button>
             </div>
           </div>
-          <div id="adminLogList" class="slist" style="max-height:320px"></div>
+          <!-- Log Tabs -->
+          <div style="display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:8px">
+            <button class="log-tab-btn active" data-logtab="student" style="background:none;border:none;border-bottom:2px solid var(--blue2);color:var(--blue2);padding:5px 12px;font-size:.73rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-weight:600">🎓 學生預約</button>
+            <button class="log-tab-btn" data-logtab="teacher" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:5px 12px;font-size:.73rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif">👩‍🏫 教師預約</button>
+            <button class="log-tab-btn" data-logtab="fixed" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:5px 12px;font-size:.73rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif">📌 固定/管理</button>
+          </div>
+          <div id="logPanel-student" class="log-panel"><div id="adminLogList-student" class="slist" style="max-height:300px"></div></div>
+          <div id="logPanel-teacher" class="log-panel" style="display:none"><div id="adminLogList-teacher" class="slist" style="max-height:300px"></div></div>
+          <div id="logPanel-fixed" class="log-panel" style="display:none"><div id="adminLogList-fixed" class="slist" style="max-height:300px"></div></div>
+          <!-- keep legacy id for compat -->
+          <div id="adminLogList" style="display:none"></div>
         </div>
         <div class="acard" style="grid-column:1/-1">
           <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
@@ -623,7 +633,7 @@ if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
 async function saveRooms(){ lss('jj_rooms',rooms); if(fbMode) await FB.set('rooms',rooms); }
 async function saveUsers(){ lss('jj_users',users); if(fbMode) await FB.set('users',users); }
 async function saveClasses(){ lss('jj_classes',classes); if(fbMode) await FB.set('classes',classes); }
-async function saveData(){  lss('jj_data',sysData);if(fbMode) await FB.set('sysData',sysData); }
+async function saveData(){  lss('jj_data',sysData); if(window.__markLocalSave) window.__markLocalSave(); if(fbMode) await FB.set('sysData',sysData); }
 async function saveLogs(){  lss('jj_logs',logs); if(fbMode) await FB.set('logs',logs.slice(0,200)); }
 async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('notifs',notifs); }
 // ═══════════════════════════════════
@@ -693,7 +703,7 @@ function scheduleCleanup(){
   setInterval(()=>runRollingCleanup(), CLEANUP_INTERVAL_MS);
 }
 
-function addLog(e){ logs.unshift(e); if(logs.length>500) logs.pop(); saveLogs(); }
+function addLog(e){ if(!e.t) e.t=new Date().toLocaleString("zh-TW"); if(e.booker&&users[e.booker]&&!e.bookerType) e.bookerType=users[e.booker].type||"student"; logs.unshift(e); if(logs.length>500) logs.pop(); saveLogs(); }
 
 // Load from Firebase on boot
 async function loadFromFirebase(){
@@ -830,14 +840,14 @@ function doLogin(){
   if(!name||!pwd){ showLoginErr('請輸入姓名與密碼'); return; }
   if(!users[name]){ showLoginErr('找不到此帳號'); return; }
   if(users[name].pwd!==pwd){ showLoginErr('密碼錯誤'); return; }
-  lss('jj_curUser',name);
+  lss('jj_curUser',name); sessionStorage.setItem('jj_curUser',name);
   closeLoginModal();
   enterApp(name);
   if(pwd==='000'){ forcePwdChange=true; openChangePwdModal(true); return; }
   checkNotifs();
 }
 function restoreSession(){
-  const name=ls('jj_curUser');
+  const name=ls('jj_curUser')||sessionStorage.getItem('jj_curUser');
   if(!name) return;
   // 若 users 物件中沒有此帳號（可能 Firebase 尚未同步），嘗試從 localStorage 補回
   if(!users[name]){
@@ -871,7 +881,7 @@ function enterApp(name){
   startListeners();
 }
 function doLogout(){
-  lsd('jj_curUser'); stopListeners();
+  lsd('jj_curUser'); sessionStorage.removeItem('jj_curUser'); stopListeners();
   curUser=''; isAdmin=false; forcePwdChange=false;
   document.getElementById('mainBody').classList.remove('is-admin');
   G('adminBadge').style.display='none'; G('userPill').style.display='none';
@@ -889,7 +899,14 @@ function showLoginErr(msg){ const e=G('loginErr'); e.textContent=msg; e.classLis
 // ═══════════════════════════════════
 function startListeners(){
   if(!fbMode) return;
-  const u1=FB.listen('sysData',v=>{ if(v){sysData=v;lss('jj_data',v);updateBoard();} });
+  let saving = false;
+  // Patch saveData to set flag
+  const origSaveData = saveData;
+  window.__saveDataPatched = true;
+  // Use a timestamp guard: ignore Firebase updates that arrive within 2s of our own save
+  let lastLocalSave = 0;
+  window.__markLocalSave = ()=>{ lastLocalSave = Date.now(); };
+  const u1=FB.listen('sysData',v=>{ if(v){ if(Date.now()-lastLocalSave<2000) return; sysData=v;lss('jj_data',v);updateBoard();} });
   const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
   const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
   const u4=FB.listen('notifs',v=>{ if(v&&v[curUser]?.length){notifs=v;lss('jj_notifs',v);} });
@@ -948,7 +965,10 @@ function initUI(){
 }
 function rebuildHeader(){
   const h=G('timeHeader'); if(!h) return;
-  h.innerHTML='<th class="rl">琴房</th>'+getVis().map(t=>`<th style="color:var(--red2);font-weight:500">${t}</th>`).join('');
+  h.innerHTML='<th class="rl" style="width:72px;min-width:72px">琴房</th>'+getVis().map(t=>{
+    const parts=t.split(':');
+    return `<th style="color:var(--red2);font-weight:500;width:58px;min-width:58px;max-width:58px"><div style="font-size:.72rem">${parts[0]}</div><div style="font-size:.6rem">:${parts[1]}</div></th>`;
+  }).join('');
 }
 function initAdminUI(){
   refreshRoomGrid();
@@ -1123,7 +1143,15 @@ function updateBoard(){
 
     rooms.forEach(room=>{
       const tr=document.createElement('tr');
-      const rl=document.createElement('td'); rl.className='rl'; rl.textContent=room; tr.appendChild(rl);
+      const rl=document.createElement('td'); rl.className='rl';
+      // Split room name: leading digits vs text portion for two-line display
+      const rmMatch=room.match(/^(\d+)(.*)$/);
+      if(rmMatch && rmMatch[2].trim()){
+        rl.innerHTML=`<div style="font-size:.72rem;font-weight:700">${esc(rmMatch[1])}</div><div style="font-size:.62rem;font-weight:500;color:var(--tx2);white-space:normal;word-break:break-all;line-height:1.2">${esc(rmMatch[2].trim())}</div>`;
+      } else {
+        rl.innerHTML=`<div style="font-size:.68rem;white-space:normal;word-break:break-all;line-height:1.3">${esc(room)}</div>`;
+      }
+      tr.appendChild(rl);
 
       vis.forEach(time=>{
         const td=document.createElement('td');
@@ -1711,27 +1739,64 @@ document.addEventListener('change',ev=>{
 // ═══════════════════════════════════
 // LOG
 // ═══════════════════════════════════
-function refreshAdminLog(){
-  const el=G('adminLogList'); if(!el) return;
-  if(!logs.length){ el.innerHTML='<div class="li txm" style="justify-content:center;padding:16px">尚無記錄</div>'; return;
-  }
+let curLogTab = 'student';
 
-  // Replace element to clear old listeners
+function logCategory(l){
+  if(!l||!l.msg) return 'fixed';
+  const msg = l.msg;
+  // admin write / cancel are student/teacher entries
+  if(l.cancellable){
+    const utype = l.bookerType || users[l.booker]?.type || 'student';
+    return (utype==='teacher'||utype==='admin') ? 'teacher' : 'student';
+  }
+  if(msg.startsWith('[管理員') && msg.includes('代填')) {
+    // detect user type from name inside msg
+    const m = msg.match(/代填預約[^（]*（([^・）]+)/);
+    const name = m ? m[1].trim() : '';
+    const utype = users[name]?.type || 'student';
+    return (utype==='teacher'||utype==='admin') ? 'teacher' : 'student';
+  }
+  return 'fixed';
+}
+
+function fmtLogTime(t){
+  // t is already toLocaleString('zh-TW'), ensure it has dow
+  if(!t) return '';
+  // try to parse and add dow if missing
+  try {
+    const d = new Date(t.replace(/\//g,'-').replace(/上午|下午/g,'').trim());
+    if(!isNaN(d)){
+      const dow = ['日','一','二','三','四','五','六'][d.getDay()];
+      // check if already has 週X
+      if(!/週[日一二三四五六]/.test(t)){
+        const parts = t.split(' ');
+        return parts[0]+'（週'+dow+'）'+(parts.slice(1).join(' ')||'');
+      }
+    }
+  } catch(e){}
+  return t;
+}
+
+function renderLogPanel(category){
+  const listId = 'adminLogList-'+category;
+  const el = G(listId); if(!el) return;
+  const filtered = logs.slice(0,300).map((l,i)=>({l,i})).filter(({l})=>logCategory(l)===category);
+  if(!filtered.length){ el.innerHTML='<div class="li txm" style="justify-content:center;padding:16px">尚無記錄</div>'; return; }
   const clone=el.cloneNode(false);
   el.parentNode.replaceChild(clone,el);
-  const nel=G('adminLogList');
-  nel.innerHTML=logs.slice(0,120).map((l,i)=>{
+  const nel=G(listId);
+  nel.innerHTML=filtered.map(({l,i})=>{
     if(!l) return '';
     const bookExists=l.cancellable&&l.bookKey&&sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
+    const tDisplay = fmtLogTime(l.t||'');
     return `<div class="li" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px">
       <div style="color:var(--tx);font-size:.76rem;line-height:1.4">${esc(l.msg)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
-        <span class="txs txm">${l.t||''}</span>
+        <span class="txs txm">${tDisplay}</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
           ${bookExists?`<button class="lcb" data-la="edit" data-li="${i}" style="font-size:.65rem;background:rgba(28,111,214,.15);color:var(--blue2);border-color:rgba(28,111,214,.3)">✏ 修改預約</button>`:''}
           ${bookExists?`<button class="lcb" data-la="cancel" data-li="${i}" style="font-size:.65rem">✕ 刪除預約</button>`:''}
           <button class="lcb" data-la="del" data-li="${i}" style="font-size:.65rem;background:rgba(100,100,100,.12);color:var(--tx3);border-color:var(--bd2)">🗑 刪除記錄</button>
-   
         </div>
       </div>
     </div>`;
@@ -1740,7 +1805,6 @@ function refreshAdminLog(){
     const btn=ev.target.closest('[data-la]'); if(!btn) return;
     const i=+btn.dataset.li, la=btn.dataset.la;
     const l=logs[i]; if(!l) return;
-
     if(la==='del'){
       const bookExists=l.cancellable&&l.bookKey&&sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
       const msg=bookExists?`確定刪除此日誌並同時取消 ${l.bookRoom} 的預約？`:'確定刪除此筆日誌記錄？';
@@ -1751,11 +1815,8 @@ function refreshAdminLog(){
         toast(bookExists?'預約及日誌已刪除':'日誌已刪除','i');
       });
       return;
- 
     }
-
     if(la==='cancel'){
-      // Delete booking directly (admin), notify user
       const d=sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime]; if(!d) return;
       showConfirm(`確定取消 ${d.name} 在 ${l.bookRoom} ${l.bookKey} ${l.bookTime} 的預約？`, '將通知預約者', ()=>{
         const reason='管理員由日誌取消';
@@ -1765,9 +1826,7 @@ function refreshAdminLog(){
       });
       return;
     }
-
     if(la==='edit'){
-      // Open edit modal for this booking
       const d=sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
       if(!d) return;
       openEditBookModal(l.bookKey,l.bookRoom,l.bookTime,d);
@@ -1775,6 +1834,26 @@ function refreshAdminLog(){
     }
   });
 }
+
+function refreshAdminLog(){
+  ['student','teacher','fixed'].forEach(cat => renderLogPanel(cat));
+}
+
+// Log tab switching
+document.addEventListener('click', ev => {
+  const tb = ev.target.closest('.log-tab-btn');
+  if(!tb) return;
+  const tab = tb.dataset.logtab;
+  curLogTab = tab;
+  document.querySelectorAll('.log-tab-btn').forEach(b=>{
+    const active = b.dataset.logtab === tab;
+    b.style.borderBottomColor = active ? (tab==='student'?'var(--blue2)':tab==='teacher'?'var(--pur2)':'var(--gold2)') : 'transparent';
+    b.style.color = active ? (tab==='student'?'var(--blue2)':tab==='teacher'?'var(--pur2)':'var(--gold2)') : 'var(--tx3)';
+    b.style.fontWeight = active ? '600' : 'normal';
+  });
+  document.querySelectorAll('.log-panel').forEach(p => p.style.display='none');
+  const panel = G('logPanel-'+tab); if(panel) panel.style.display='block';
+});
 
 // ═══════════════════════════════════
 // CSV
