@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, get, onValue, remove, update }
+import { getDatabase, ref, set, get, onValue, remove, update, runTransaction }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 // ══════════════════════════════════════════════
 // ★ 請將下方設定替換為您自己的 Firebase 設定 ★
@@ -45,6 +45,8 @@ window.__fb = {
   remove: (path)       => FB_READY ? remove(ref(db,path))    : Promise.resolve(),
   update: (path,val)   => FB_READY ? update(ref(db,path),val): Promise.resolve(),
   listen: (path,cb)    => { if(!FB_READY){return ()=>{};} const r=ref(db,path); const unsub=onValue(r,s=>cb(s.val())); return unsub; },
+  // 原子性交易：path 為要操作的節點路徑，updateFn 回傳新值（回傳 undefined 表示中止）
+  transaction: (path, updateFn) => FB_READY ? runTransaction(ref(db,path), updateFn) : Promise.resolve({committed:false}),
   ready:  ()           => FB_READY
 };
 
@@ -327,8 +329,8 @@ thead th.rl { z-index:12; }
           <div class="fg"><label class="fl">備注（選填）</label><input id="setRemark" class="fi" placeholder="例：請勿移動樂器"></div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用琴房</span><button class="btn bgh bsm" data-togall="adminRoom" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminRoomGrid" class="cgrid"></div></div></div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用星期</span><button class="btn bgh bsm" data-togall="adminDay" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminDayGrid" class="cgrid"></div></div></div>
-          <div id="lockDateRange" class="hidden">
-            <div class="fl" style="margin-bottom:6px">指定日期範圍（留空=未來8週）</div>
+          <div id="schedDateRange" class="hidden">
+            <div class="fl" style="margin-bottom:6px" id="schedDateRangeLabel">指定日期範圍（留空=永久每週套用）</div>
             <div class="flex gap8"><div class="fg flex1"><label class="fl">起始日</label><input id="lockFrom" class="fi" type="date"></div><div class="fg flex1"><label class="fl">結束日</label><input id="lockTo" class="fi" type="date"></div></div>
           </div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用時段</span><button class="btn bgh bsm" data-togall="adminTime" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminTimeGrid" class="cgrid"></div></div></div>
@@ -618,8 +620,8 @@ function yesterdayOf(ds){ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate(
 const DEFAULT_ROOMS=['101單間','101A','101B','101C','101D','101E','102單間','102A','102B','102C','102D','102E','104單間','104A','104B','104C','104D','105擊樂教室','B1樂團教室','B1排練教室','209展演廳','210A錄音室','210B混音室','211A','211B','211C','212A','212B','212C'];
 
 function ls(k,def=null){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):def;}catch{return def;} }
-function lss(k,v){ localStorage.setItem(k,JSON.stringify(v)); }
-function lsd(k){ localStorage.removeItem(k); }
+function lss(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ console.warn('[localStorage] 寫入失敗（可能為私密瀏覽模式）:',e); } }
+function lsd(k){ try{ localStorage.removeItem(k); }catch(e){} }
 
 let rooms   = ls('jj_rooms') || DEFAULT_ROOMS;
 let users   = ls('jj_users') || {};
@@ -786,7 +788,7 @@ function closeModals(){
 }
 function showMErr(id,msg){ const e=G(id); e.textContent=msg; e.classList.remove('hidden'); }
 
-G('overlay').addEventListener('click',()=>closeModals());
+G('overlay').addEventListener('click',e=>{ if(e.target===G('overlay')) closeModals(); });
 document.addEventListener('click',ev=>{
   if(ev.target.hasAttribute('data-close')) closeModals();
   // toggle-all
@@ -910,14 +912,11 @@ function showLoginErr(msg){ const e=G('loginErr'); e.textContent=msg; e.classLis
 // ═══════════════════════════════════
 function startListeners(){
   if(!fbMode) return;
-  let saving = false;
-  // Patch saveData to set flag
-  const origSaveData = saveData;
-  window.__saveDataPatched = true;
-  // Use a timestamp guard: ignore Firebase updates that arrive within 2s of our own save
+  // Use a timestamp guard + isSaving flag: ignore Firebase updates during and shortly after our own save
   let lastLocalSave = 0;
-  window.__markLocalSave = ()=>{ lastLocalSave = Date.now(); };
-  const u1=FB.listen('sysData',v=>{ if(v){ if(Date.now()-lastLocalSave<2000) return; sysData=v;lss('jj_data',v);updateBoard();} });
+  let isSaving = false;
+  window.__markLocalSave = ()=>{ lastLocalSave = Date.now(); isSaving = true; setTimeout(()=>{ isSaving=false; }, 8000); };
+  const u1=FB.listen('sysData',v=>{ if(v){ if(isSaving||Date.now()-lastLocalSave<6000) return; sysData=v;lss('jj_data',v);updateBoard();} });
   const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
   const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
   const u4=FB.listen('notifs',v=>{ if(v&&v[curUser]?.length){notifs=v;lss('jj_notifs',v);} });
@@ -987,6 +986,8 @@ function initAdminUI(){
   const rules=ls('jj_rules')||''; const ra=G('adminRulesText'); if(ra) ra.value=rules;
   // Init class dropdowns visibility
   const nt=G('newMemberType'); if(nt) G('newMemberClassWrap').style.display=nt.value==='student'?'flex':'none';
+  // Show date range field (default mode = fixed)
+  setMode(curMode||'fixed');
 }
 
 document.addEventListener('click',ev=>{
@@ -1114,13 +1115,13 @@ function makeAdminSetBtn(key, room, time, d, label) {
   return btn;
 }
 
-function adminQuickDel(key,room,time){
+async function adminQuickDel(key,room,time){
   if(!isAdmin) return;
   const d=sysData[key]?.[room]?.[time];
   if(!d) return;
   if(d.type==='lock'||d.type==='fixed'){
     addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}（${d.teacher||d.note||'—'}）`,cancellable:false});
-    delete sysData[key][room][time]; saveData(); updateBoard();
+    delete sysData[key][room][time]; await saveData(); updateBoard();
     if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
   } else {
     openDeleteModal(key,room,time);
@@ -1343,7 +1344,7 @@ G('bookNoteSelect').addEventListener('change',function(){
   toggle('noteOtherWrap',this.value==='other');
 });
 
-G('confirmBookBtn').addEventListener('click',()=>{
+G('confirmBookBtn').addEventListener('click', async ()=>{
   const ds=G('viewDate').value;
   let note=G('bookNoteSelect').value;
   if(note==='主副修課'){ const t=V('lessonTeacher'),ins=V('lessonInstrument'); if(!t||!ins){ showMErr('bookErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
@@ -1351,15 +1352,58 @@ G('confirmBookBtn').addEventListener('click',()=>{
   const sel=QA('input[name="bTime"]:checked').map(e=>e.value);
   if(!sel.length){ showMErr('bookErr','請至少選擇一個時段'); return; }
   const {room}=pending;
-  if(!sysData[ds]) sysData[ds]={};
-  if(!sysData[ds][room]) sysData[ds][room]={};
-  const conflicts=sel.filter(t=>{ const d=sysData[ds][room][t]; return d&&d.type!=='fixed'; });
-  if(conflicts.length){ showMErr('bookErr',`時段 ${conflicts.join('、')} 已被佔用`); return; }
+  const userType=users[curUser]?.type;
+
+  // ── Firebase 模式：使用 runTransaction 原子性寫入，防止多人同時搶同一時段 ──
+  if(fbMode){
+    let txConflicts=[];
+    try{
+      const result = await FB.transaction(`sysData/${ds}/${room}`, (roomData)=>{
+        // roomData 為 Firebase 目前最新值（原子讀取）
+        if(!roomData) roomData={};
+        txConflicts=[];
+        for(const t of sel){
+          const existing=roomData[t];
+          if(existing && existing.type!=='fixed'){
+            txConflicts.push(t);
+          }
+        }
+        if(txConflicts.length) return; // 回傳 undefined = 中止交易，不寫入
+        // 全部時段可用，寫入
+        for(const t of sel){
+          roomData[t]={name:curUser,note,type:'book',userType};
+        }
+        return roomData;
+      });
+      if(!result.committed){
+        showMErr('bookErr',`時段 ${txConflicts.join('、')} 已被他人搶先預約，請重新選擇`);
+        // 重新整理看板以顯示最新狀態
+        const freshRoom = await FB.get(`sysData/${ds}/${room}`);
+        if(freshRoom){ if(!sysData[ds]) sysData[ds]={}; sysData[ds][room]=freshRoom; lss('jj_data',sysData); updateBoard(); }
+        return;
+      }
+      // 交易成功：同步本地快取
+      const freshRoom = await FB.get(`sysData/${ds}/${room}`);
+      if(freshRoom){ if(!sysData[ds]) sysData[ds]={}; sysData[ds][room]=freshRoom; lss('jj_data',sysData); }
+    } catch(err){
+      console.error('[Transaction] 預約失敗:', err);
+      showMErr('bookErr','預約時發生錯誤，請重新整理後再試'); return;
+    }
+  } else {
+    // ── 離線模式（localStorage）：本地衝突檢查後直接寫入 ──
+    if(!sysData[ds]) sysData[ds]={};
+    if(!sysData[ds][room]) sysData[ds][room]={};
+    const conflicts=sel.filter(t=>{ const d=sysData[ds][room][t]; return d&&d.type!=='fixed'; });
+    if(conflicts.length){ showMErr('bookErr',`時段 ${conflicts.join('、')} 已被佔用`); return; }
+    sel.forEach(t=>{ sysData[ds][room][t]={name:curUser,note,type:'book',userType}; });
+    lss('jj_data',sysData);
+  }
+
+  // 寫入日誌
   sel.forEach(t=>{
-    sysData[ds][room][t]={name:curUser,note,type:'book',userType:users[curUser]?.type};
     addLog({t:new Date().toLocaleString('zh-TW'),msg:`${curUser} 預約 ${room} ${ds} ${t}（${note}）`,bookKey:ds,bookRoom:room,bookTime:t,booker:curUser,bookNote:note,cancellable:true});
   });
-  saveData(); closeModals(); updateBoard();
+  closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog();
   toast(`${room} 預約成功（${sel.length}個時段）`,'s');
 });
@@ -1383,7 +1427,7 @@ function openDeleteModal(dateKey,room,time){
   hide('delErr'); openModal('deleteModal');
 }
 
-G('confirmDelBtn').addEventListener('click',()=>{
+G('confirmDelBtn').addEventListener('click', async ()=>{
   const {key,room,time}=pending;
   const d=sysData[key]?.[room]?.[time]; if(!d){ closeModals(); return; }
   if(isAdmin&&d.name!==curUser){
@@ -1398,10 +1442,10 @@ G('confirmDelBtn').addEventListener('click',()=>{
     else showMErr('delErr','密碼錯誤');
   }
 });
-function doDelete(key,room,time,logMsg){
+async function doDelete(key,room,time,logMsg){
   const d=sysData[key]?.[room]?.[time]; if(!d) return;
   addLog({t:new Date().toLocaleString('zh-TW'),msg:logMsg||`取消預約 ${room} ${key} ${time}${d.name?' ('+d.name+')':''}`,cancellable:false});
-  delete sysData[key][room][time]; saveData(); closeModals(); updateBoard();
+  delete sysData[key][room][time]; await saveData(); closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog();
 }
 
@@ -1419,12 +1463,12 @@ function openAdminDelSetModal(key,room,time,d){
     <div class="ir"><span class="ila">說明</span><span class="ilv">${esc(d.teacher||d.note||'—')}</span></div>`;
   G('adminDelSetNote').value=''; openModal('adminDelSetModal');
 }
-G('confirmAdminDelSetBtn').addEventListener('click',()=>{
+G('confirmAdminDelSetBtn').addEventListener('click', async ()=>{
   const {key,room,time}=pending;
   const d=sysData[key]?.[room]?.[time]; if(!d) return;
   const note=V('adminDelSetNote')||'管理員刪除';
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}，備注：${note}`,cancellable:false});
-  delete sysData[key][room][time]; saveData(); closeModals(); updateBoard();
+  delete sysData[key][room][time]; await saveData(); closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
 });
 // ═══════════════════════════════════
@@ -1456,13 +1500,13 @@ G('editNoteSelect').addEventListener('change',function(){
   toggle('editLessonWrap',this.value==='主副修課');
   toggle('editNoteOtherWrap',this.value==='other');
 });
-G('confirmEditBookBtn').addEventListener('click',()=>{
+G('confirmEditBookBtn').addEventListener('click', async ()=>{
   const {key,room,time}=pending;
   const d=sysData[key]?.[room]?.[time]; if(!d){ closeModals(); return; }
   let note=G('editNoteSelect').value;
   if(note==='主副修課'){ const t=V('editLessonTeacher'),ins=V('editLessonInstrument'); if(!t||!ins){ showMErr('editErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
   else if(note==='other'){ note=V('editNoteOther'); if(!note){ showMErr('editErr','請填寫備注內容'); return; } }
-  d.note=note; saveData(); closeModals(); updateBoard();
+  d.note=note; await saveData(); closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog();
   toast('預約備注已修改','s');
 });
@@ -1497,7 +1541,7 @@ G('adminWriteNoteSelect').addEventListener('change',function(){
   toggle('adminWriteLessonWrap',this.value==='主副修課');
   toggle('adminWriteNoteOtherWrap',this.value==='other');
 });
-G('confirmAdminWriteBtn').addEventListener('click',()=>{
+G('confirmAdminWriteBtn').addEventListener('click', async ()=>{
   const {key,room,time}=pending;
   const name=V('adminWriteName');
   if(!name){showMErr('adminWriteErr','請填寫預約人姓名');return;}
@@ -1510,7 +1554,7 @@ G('confirmAdminWriteBtn').addEventListener('click',()=>{
   const utype=users[name]?.type||'student';
   sysData[ds][room][time]={name,note,type:'book',userType:utype};
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 代填預約 ${room} ${ds} ${time}（${name}・${note}）`,cancellable:false});
-  saveData();closeModals();updateBoard();refreshAdminLog();
+  await saveData();closeModals();updateBoard();refreshAdminLog();
   toast(`✅ 已代填：${name} · ${room} · ${time}`,'s');
 });
 
@@ -1532,7 +1576,7 @@ function openEditFixedModal(key,room,time,fixedD){
   hide('editFixedErr');
   openModal('editFixedModal');
 }
-G('confirmEditFixedBtn').addEventListener('click',()=>{
+G('confirmEditFixedBtn').addEventListener('click', async ()=>{
   const {key,room,time}=pending;
   const d=sysData[key]?.[room]?.[time];
   if(!d){closeModals();return;}
@@ -1542,7 +1586,7 @@ G('confirmEditFixedBtn').addEventListener('click',()=>{
   const label=teacher+(remark?'・'+remark:'');
   d.teacher=label; d.remark=remark||'';
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 修改固定排課 ${room} ${key} ${time} → ${label}`,cancellable:false});
-  saveData();closeModals();updateBoard();refreshAdminLog();
+  await saveData();closeModals();updateBoard();refreshAdminLog();
   toast('固定排課已修改','s');
 });
 
@@ -1552,10 +1596,11 @@ G('confirmEditFixedBtn').addEventListener('click',()=>{
 function setMode(m){
   curMode=m; QA('.mbtbtn').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
   G('schedLabel').textContent=m==='fixed'?'排課主題 / 對象':'封鎖事由';
-  toggle('lockDateRange',m==='lock');
+  show('schedDateRange');
+  G('schedDateRangeLabel').textContent=m==='fixed'?'指定日期範圍（留空=永久每週套用）':'指定日期範圍（留空=未來8週）';
 }
 
-G('saveSettingBtn').addEventListener('click',()=>{
+G('saveSettingBtn').addEventListener('click', async ()=>{
   const rms=QA('input[name="adminRoom"]:checked').map(e=>e.value);
   const tms=QA('input[name="adminTime"]:checked').map(e=>e.value);
   const dys=QA('input[name="adminDay"]:checked').map(e=>+e.value);
@@ -1563,23 +1608,35 @@ G('saveSettingBtn').addEventListener('click',()=>{
   if(!tc){ toast('請填寫主題','e'); return; }
   if(!rms.length||!tms.length||!dys.length){ toast('請選擇琴房、星期、時段','e'); return; }
   const label=tc+(remark?'・'+remark:'');
+  const fv=V('lockFrom'), tv=V('lockTo');
   if(curMode==='fixed'){
-    dys.forEach(d=>{ const k=String(d); if(!sysData[k]) sysData[k]={}; rms.forEach(r=>{ if(!sysData[k][r]) sysData[k][r]={}; tms.forEach(t=>{ sysData[k][r][t]={teacher:label,remark,type:'fixed'}; }); }); });
-    addLog({t:new Date().toLocaleString('zh-TW'),msg:`固定排課: ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段`,cancellable:false});
-    toast('固定排課已套用','s');
+    if(fv&&tv){
+      // 指定日期範圍：寫入具體日期 key（type:'fixed'）
+      let dates=[]; let c=new Date(fv+'T00:00:00');
+      const e=new Date(tv+'T00:00:00');
+      while(c<=e){ if(dys.includes(c.getDay())) dates.push(dateStr(c)); c.setDate(c.getDate()+1); }
+      if(!dates.length){ toast('沒有符合條件的日期','e'); return; }
+      dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; rms.forEach(r=>{ if(!sysData[ds][r]) sysData[ds][r]={}; tms.forEach(t=>{ sysData[ds][r][t]={teacher:label,remark,type:'fixed'}; }); }); });
+      addLog({t:new Date().toLocaleString('zh-TW'),msg:`固定排課(日期範圍): ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
+      toast(`固定排課已套用（${dates.length}天）`,'s');
+    } else {
+      // 留空：寫入 dow key（0~6），永久每週套用
+      dys.forEach(d=>{ const k=String(d); if(!sysData[k]) sysData[k]={}; rms.forEach(r=>{ if(!sysData[k][r]) sysData[k][r]={}; tms.forEach(t=>{ sysData[k][r][t]={teacher:label,remark,type:'fixed'}; }); }); });
+      addLog({t:new Date().toLocaleString('zh-TW'),msg:`固定排課(永久): ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段`,cancellable:false});
+      toast('固定排課已套用（永久每週）','s');
+    }
   } else {
-    const fv=V('lockFrom'), tv=V('lockTo'); let dates=[];
+    let dates=[];
     if(fv&&tv){ let c=new Date(fv+'T00:00:00');
     const e=new Date(tv+'T00:00:00'); while(c<=e){ if(dys.includes(c.getDay())) dates.push(dateStr(c)); c.setDate(c.getDate()+1); } }
     else { for(let i=0;i<56;i++){ const d2=new Date(); d2.setDate(d2.getDate()+i);
     if(dys.includes(d2.getDay())) dates.push(dateStr(d2)); } }
-    if(!dates.length){ toast('沒有符合條件的日期','e'); return;
-    }
+    if(!dates.length){ toast('沒有符合條件的日期','e'); return; }
     dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; rms.forEach(r=>{ if(!sysData[ds][r]) sysData[ds][r]={}; tms.forEach(t=>{ sysData[ds][r][t]={note:label,remark,type:'lock'}; }); }); });
     addLog({t:new Date().toLocaleString('zh-TW'),msg:`封鎖: ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
     toast(`封鎖已套用（${dates.length}天）`,'s');
   }
-  saveData(); updateBoard(); refreshAdminLog();
+  await saveData(); updateBoard(); refreshAdminLog();
 });
 // ═══════════════════════════════════
 // MEMBERS
@@ -1824,8 +1881,8 @@ function renderLogPanel(category){
       const bookExists=l.cancellable&&l.bookKey&&sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
       const msg=bookExists?`確定刪除此日誌並同時取消 ${l.bookRoom} 的預約？`:'確定刪除此筆日誌記錄？';
       const sub=bookExists?'預約將從看板移除，不會通知預約者。':'此操作無法復原';
-      showConfirm(msg, sub, ()=>{
-        if(bookExists){ delete sysData[l.bookKey][l.bookRoom][l.bookTime]; saveData(); updateBoard(); }
+      showConfirm(msg, sub, async ()=>{
+        if(bookExists){ delete sysData[l.bookKey][l.bookRoom][l.bookTime]; await saveData(); updateBoard(); }
         logs.splice(i,1); saveLogs(); refreshAdminLog(); updateCleanupStatus();
         toast(bookExists?'預約及日誌已刪除':'日誌已刪除','i');
       });
@@ -1873,7 +1930,7 @@ document.addEventListener('click', ev => {
 // ═══════════════════════════════════
 // CSV
 // ═══════════════════════════════════
-G('importCsvBtn').addEventListener('click',()=>{
+G('importCsvBtn').addEventListener('click', async ()=>{
   const raw=V('csvImportText'); if(!raw){ toast('請貼入CSV內容','e'); return; }
   const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));
   let ok=0,skip=0,errs=[];
@@ -1931,13 +1988,13 @@ G('importCsvBtn').addEventListener('click',()=>{
     }
     ok++;
   });
-  saveData(); updateBoard();
+  await saveData(); updateBoard();
   const msg=`匯入：${ok}筆成功${skip?`，${skip}筆跳過`:''}`;
   G('csvResult').textContent=errs.length?msg+'（'+errs.slice(0,2).join('；')+'）':msg;
   ok>0?toast(msg,'s'):toast('沒有成功匯入任何資料','e');
 });
 G('clearFixedBtn').addEventListener('click',()=>{
-  showConfirm('確定清除所有固定排課資料？','此操作無法復原',()=>{
+  showConfirm('確定清除所有固定排課資料？','此操作無法復原', async ()=>{
     // 清除 DOW keys (0-6) 中的固定排課
     ['0','1','2','3','4','5','6'].forEach(k=>{ if(sysData[k]) delete sysData[k]; });
     // 清除日期 keys 中 type==='fixed' 的條目（CSV 匯入含日期範圍的固定排課）
@@ -1955,18 +2012,18 @@ G('clearFixedBtn').addEventListener('click',()=>{
         if(Object.keys(sysData[k]||{}).length===0) delete sysData[k];
       }
     });
-    saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
+    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
   });
 });
 G('clearLockBtn').addEventListener('click',()=>{
-  showConfirm('確定清除所有封鎖時段？','此操作無法復原',()=>{
+  showConfirm('確定清除所有封鎖時段？','此操作無法復原', async ()=>{
     Object.keys(sysData).forEach(k=>{
       if(/^\d$/.test(k)) return; // skip dow keys
       if(typeof sysData[k]==='object') Object.keys(sysData[k]).forEach(room=>{
         Object.keys(sysData[k][room]||{}).forEach(t=>{ if(sysData[k][room][t]?.type==='lock') delete sysData[k][room][t]; });
       });
     });
-    saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
+    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
   });
 });
 G('dlTemplateBtn').addEventListener('click',()=>{
