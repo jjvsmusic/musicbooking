@@ -250,6 +250,15 @@ thead th.rl { z-index:12; }
 .query-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--bd);padding-bottom:0}
 .qtab{background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:6px 14px;font-size:.76rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;transition:all .15s}
 .qtab.active{color:var(--blue2);border-bottom-color:var(--blue2);font-weight:600}
+
+/* ── STUDENT FIXED SLOT (藍色虛線，區別於教師金色虛線) ── */
+.ss{background:rgba(74,144,226,.08);border:1.5px dashed rgba(74,144,226,.55);color:var(--blue2)}.ss:hover{background:rgba(74,144,226,.18)}
+
+/* ── NON-DESIGNEE BOOKED A FIXED SLOT → 紅色背景 ── */
+.sbo{background:linear-gradient(135deg,rgba(231,76,60,.82),rgba(192,57,43,.82));color:#fff;border:none}
+
+/* ── PAST-BUT-VIEWABLE (booked slots that are past → opacity only, still clickable) ── */
+.pv{opacity:.45;cursor:pointer}
 </style>
 </head>
 <body id="mainBody">
@@ -493,8 +502,10 @@ thead th.rl { z-index:12; }
     <div id="fixedNotice" class="fn hidden"><span>📌</span><div><strong>此時段有固定排課：</strong><span id="fnText"></span><br><span style="color:var(--tx2);font-size:.72rem">仍開放預約。</span></div></div>
     <div id="reservedNotice" class="ab aw hidden">⏳ 此時段為固定排課時段，<strong>需等到前一日</strong>才開放預約。</div>
     <div class="ib" id="bookInfo"></div>
-    <div class="fg"><label class="fl">備注類型</label><select id="bookNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="other">其他</option></select></div>
+    <div class="fg"><label class="fl">備注類型</label><select id="bookNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="共練">自主練習與他人共練</option><option value="特別時段">教師同意特別時段練習</option><option value="other">其他</option></select></div>
     <div id="lessonWrap" class="hidden flex gap8"><div class="fg flex1"><label class="fl">授課老師</label><input id="lessonTeacher" class="fi" placeholder="例：王老師"></div><div class="fg flex1"><label class="fl">課程樂器</label><input id="lessonInstrument" class="fi" placeholder="例：鋼琴"></div></div>
+    <div id="bookCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="bookCoName" class="fi" placeholder="請輸入共練者姓名"></div>
+    <div id="bookSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="bookSpecialTeacher" class="fi" placeholder="請輸入同意的教師姓名"></div>
     <div id="noteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="bookNoteOther" class="fi" placeholder="請輸入備注"></div>
     <div><div class="fl" style="margin-bottom:6px">選擇時段 <span class="txm txs">（可複選）</span></div><div class="cbox"><div id="bookTimeGrid" class="cgrid"></div></div></div>
     <div id="bookErr" class="ab ae hidden"></div>
@@ -526,8 +537,10 @@ thead th.rl { z-index:12; }
   <div class="mh"><div class="mt" style="color:var(--blue2)">✏ 修改預約</div><button class="mc" data-close>×</button></div>
   <div class="mb">
     <div class="ib" id="editBookInfo"></div>
-    <div class="fg"><label class="fl">備注類型</label><select id="editNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="other">其他</option></select></div>
+    <div class="fg"><label class="fl">備注類型</label><select id="editNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="共練">自主練習與他人共練</option><option value="特別時段">教師同意特別時段練習</option><option value="other">其他</option></select></div>
     <div id="editLessonWrap" class="hidden flex gap8"><div class="fg flex1"><label class="fl">授課老師</label><input id="editLessonTeacher" class="fi" placeholder="例：王老師"></div><div class="fg flex1"><label class="fl">課程樂器</label><input id="editLessonInstrument" class="fi" placeholder="例：鋼琴"></div></div>
+    <div id="editCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="editCoName" class="fi" placeholder="請輸入共練者姓名"></div>
+    <div id="editSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="editSpecialTeacher" class="fi" placeholder="請輸入同意的教師姓名"></div>
     <div id="editNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="editNoteOther" class="fi" placeholder="請輸入備注"></div>
     <div id="editErr" class="ab ae hidden"></div>
   </div>
@@ -565,6 +578,8 @@ thead th.rl { z-index:12; }
         <option value="自主練習">自主練習</option>
         <option value="主副修課">主副修課</option>
         <option value="配伴奏">配伴奏</option>
+        <option value="共練">自主練習與他人共練</option>
+        <option value="特別時段">教師同意特別時段練習</option>
         <option value="other">其他</option>
       </select>
     </div>
@@ -572,6 +587,8 @@ thead th.rl { z-index:12; }
       <div class="fg flex1"><label class="fl">授課老師</label><input id="adminWriteLessonTeacher" class="fi" placeholder="例：王老師"></div>
       <div class="fg flex1"><label class="fl">課程樂器</label><input id="adminWriteLessonInstrument" class="fi" placeholder="例：鋼琴"></div>
     </div>
+    <div id="adminWriteCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteCoName" class="fi" placeholder="請輸入共練者姓名"></div>
+    <div id="adminWriteSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteSpecialTeacher" class="fi" placeholder="請輸入同意的教師姓名"></div>
     <div id="adminWriteNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="adminWriteNoteOther" class="fi" placeholder="請輸入備注"></div>
     <div id="adminWriteErr" class="ab ae hidden"></div>
   </div>
@@ -646,6 +663,23 @@ thead th.rl { z-index:12; }
   <div class="mf">
     <span id="queryTotalLabel" class="txs txm flex1" style="text-align:left"></span>
     <button class="btn bgh bsm" data-close>關閉</button>
+  </div>
+</div>
+
+<!-- ═══ 預約資訊查看 Modal（Feature 4）═══ -->
+<div class="modal" id="viewInfoModal" style="width:420px">
+  <div class="mh"><div class="mt" style="color:var(--tx2)">📋 預約資訊</div><button class="mc" data-close>×</button></div>
+  <div class="mb">
+    <div id="viewInfoFixedNotice" class="fn hidden" style="margin-bottom:0">
+      <span>📌</span>
+      <div><strong>原固定使用者：</strong><span id="viewInfoFixed"></span><br><span id="viewInfoSbo" class="hidden" style="color:var(--red2);font-size:.73rem;font-weight:600">⚠ 此時段由非指定人員搶先於前一日預約</span></div>
+    </div>
+    <div class="ib" id="viewInfoContent"></div>
+  </div>
+  <div class="mf" id="viewInfoFooter">
+    <button class="btn bgh bsm" data-close>關閉</button>
+    <button class="btn br bsm hidden" id="viewInfoCancelBtn">取消此預約</button>
+    <button class="btn bb bsm hidden" id="viewInfoEditBtn">✏ 修改備注</button>
   </div>
 </div>
 
@@ -865,7 +899,7 @@ function closeModal(id){ const el=G(id); if(el) el.style.display='none'; }
 function closeModals(){
   if(forcePwdChange) return;
   G('overlay').style.display='none';
-  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal','adminWriteModal','editFixedModal','queryModal'].forEach(id=>closeModal(id));
+  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal','adminWriteModal','editFixedModal','queryModal','viewInfoModal'].forEach(id=>closeModal(id));
 }
 function showMErr(id,msg){ const e=G(id); e.textContent=msg; e.classList.remove('hidden'); }
 
@@ -1272,19 +1306,30 @@ function updateBoard(){
           } else {
             // Regular booking
             const isT=users[bookD.name]?.type==='teacher'||users[bookD.name]?.type==='admin';
-            slot.className='slot '+(isT?'st':'sb')+(isPast?' past':'');
-            slot.innerHTML=`<span class="sn">${esc(bookD.name)}</span><span class="snote">${esc(bookD.note||'')}</span>`;
-            
-            if(!isPast&&(bookD.name===curUser && !isAdmin)) {
-              slot.addEventListener('click',()=>openDeleteModal(ds,room,time));
+
+            // Feature 2: 固定排課但被非指定對象於前一日預約 → 紅色背景
+            const isSboSlot = fixedD && fixedD.type==='fixed' && !isNameInFixed(fixedD.teacher||fixedD.note||'', bookD.name);
+
+            if(isSboSlot){
+              slot.className='slot sbo'+(isPast?' pv':'');
+            } else {
+              slot.className='slot '+(isT?'st':'sb')+(isPast?' pv':'');
             }
-            
+            slot.innerHTML=`<span class="sn">${esc(bookD.name)}</span><span class="snote">${esc(bookD.note||'')}</span>`;
+
+            // Feature 4: 所有已預約時段（不論登入與否、是否過去）皆可點擊查看
+            slot.style.cursor='pointer';
+            slot.addEventListener('click',(e)=>{
+              if(e.target.closest('[data-a]')||e.target.closest('.btn')) return;
+              openViewInfoModal(ds,room,time,bookD,fixedD||null,isSboSlot);
+            });
+
             if(isAdmin && !isPast) {
                slot.appendChild(makeAdminActionBtns(ds,room,time,bookD));
             } else if (!isPast && bookD.name===curUser) {
                const hint = document.createElement('div');
                hint.style.cssText = "font-size:0.5rem; opacity:0.8; margin-top:2px;";
-               hint.textContent = "(點擊可取消)";
+               hint.textContent = "(點擊可查看)";
                slot.appendChild(hint);
             }
           }
@@ -1334,6 +1379,14 @@ function isNameInFixed(raw, userName){
   return namePart.split('＋').map(n=>n.trim()).includes(userName);
 }
 
+// ── 判斷固定排課的所有指定對象是否全為學生（非教師/管理員）──
+function isStudentFixed(raw){
+  const namePart = raw.split('・')[0];
+  const names = namePart.split('＋').map(n=>n.trim()).filter(Boolean);
+  if(!names.length) return false;
+  return names.every(n => users[n]?.type === 'student');
+}
+
 // ── FIXED SLOT RENDERING with booking rules ──
 function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday,today){
   const rawTeacher=fixedD.teacher||fixedD.note||'';
@@ -1344,22 +1397,26 @@ function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday
   const dayBeforeDs=yesterdayOf(ds);
   const withinWindow=(actualToday>=dayBeforeDs);
 
+  // Feature 1: 判斷是否為學生指定的固定排課（用藍色虛線）
+  const isStudentSlot = isStudentFixed(rawTeacher);
+  const baseClass = isStudentSlot ? 'ss' : 'sx';
+
   let canBook=false;
-  if(!curUser){ canBook=false; } 
+  if(!curUser){ canBook=false; }
   else if(isAdmin){ canBook=true; }
   else if(isNameMatch){ canBook=true; }
   else if(withinWindow&&!outRange){ canBook=true; }
 
   if(isPast||outRange){
-    slot.className='slot sx past';
+    slot.className=`slot ${baseClass} past`;
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span>`;
   } else if(canBook){
-    slot.className='slot sx';
+    slot.className=`slot ${baseClass}`;
     slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } openBookModal(room,time,fixedD); });
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="fhint">＋</span>`;
   } else if(!curUser){
     // 未登入：顯示固定排課資訊，點擊引導登入
-    slot.className='slot sx';
+    slot.className=`slot ${baseClass}`;
     slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">登入後可預約</span>`;
     slot.addEventListener('click',()=>openLoginModal());
   } else {
@@ -1425,14 +1482,16 @@ function openBookModal(room,startTime,fixedD){
     tg.innerHTML+=`<label class="ci${dis?' disabled':''}"><input type="checkbox" name="bTime" value="${ts}"${checked?' checked':''}${dis?' disabled':''}><span>${ts}${restricted?'🔒':''}</span></label>`;
   });
   G('bookNoteSelect').value='自主練習';
-  hide('lessonWrap'); hide('noteOtherWrap');
-  G('lessonTeacher').value=''; G('lessonInstrument').value=''; G('bookNoteOther').value='';
+  hide('lessonWrap'); hide('bookCoWrap'); hide('bookSpecialWrap'); hide('noteOtherWrap');
+  G('lessonTeacher').value=''; G('lessonInstrument').value=''; G('bookCoName').value=''; G('bookSpecialTeacher').value=''; G('bookNoteOther').value='';
   hide('bookErr');
   openModal('bookModal');
 }
 
 G('bookNoteSelect').addEventListener('change',function(){
   toggle('lessonWrap',this.value==='主副修課');
+  toggle('bookCoWrap',this.value==='共練');
+  toggle('bookSpecialWrap',this.value==='特別時段');
   toggle('noteOtherWrap',this.value==='other');
 });
 
@@ -1440,6 +1499,8 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
   const ds=G('viewDate').value;
   let note=G('bookNoteSelect').value;
   if(note==='主副修課'){ const t=V('lessonTeacher'),ins=V('lessonInstrument'); if(!t||!ins){ showMErr('bookErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
+  else if(note==='共練'){ const co=V('bookCoName'); if(!co){ showMErr('bookErr','請填寫共練者姓名'); return; } note=`共練・${co}`; }
+  else if(note==='特別時段'){ const sp=V('bookSpecialTeacher'); if(!sp){ showMErr('bookErr','請填寫教師姓名'); return; } note=`特別時段・${sp}`; }
   else if(note==='other'){ note=V('bookNoteOther'); if(!note){ showMErr('bookErr','請填寫備注內容'); return; } }
   const sel=QA('input[name="bTime"]:checked').map(e=>e.value);
   if(!sel.length){ showMErr('bookErr','請至少選擇一個時段'); return; }
@@ -1549,6 +1610,60 @@ async function doDelete(key,room,time,logMsg){
 }
 
 // ═══════════════════════════════════
+// VIEW INFO MODAL (Feature 4)
+// ═══════════════════════════════════
+function openViewInfoModal(dateKey,room,time,bookD,fixedD,isSboSlot){
+  const key=String(dateKey);
+  if(!bookD) return;
+  const dl=/^\d$/.test(key)?`每週固定（週${DAYS[+key]}）`:key;
+  const isOwn = curUser && bookD.name===curUser;
+  const canCancel = !isPastSlot(dateKey,time) && (isOwn || isAdmin);
+  const canEdit   = isAdmin && !isPastSlot(dateKey,time);
+
+  // Feature 2: 顯示原固定使用者
+  const fixedRaw = fixedD ? (fixedD.teacher||fixedD.note||'') : '';
+  toggle('viewInfoFixedNotice', !!fixedRaw);
+  if(fixedRaw){
+    G('viewInfoFixed').textContent=fixedRaw;
+    toggle('viewInfoSbo', !!isSboSlot);
+  }
+
+  G('viewInfoContent').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期／時段</span><span class="ilv">${esc(dl)} ${esc(time)}</span></div>
+    <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(bookD.name)}</span></div>
+    <div class="ir"><span class="ila">身份</span><span class="ilv">${{admin:'管理員',teacher:'教師',student:'學生'}[users[bookD.name]?.type]||'學生'}</span></div>
+    <div class="ir"><span class="ila">備注</span><span class="ilv">${esc(bookD.note||'—')}</span></div>`;
+
+  // Cancel / Edit buttons visibility
+  const cancelBtn=G('viewInfoCancelBtn');
+  const editBtn=G('viewInfoEditBtn');
+  cancelBtn.classList.toggle('hidden',!canCancel);
+  editBtn.classList.toggle('hidden',!canEdit);
+
+  // Wire up buttons (replace listeners)
+  const newCancel=cancelBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancel,cancelBtn);
+  newCancel.classList.toggle('hidden',!canCancel);
+  newCancel.addEventListener('click',()=>{ closeModals(); openDeleteModal(key,room,time); });
+
+  const newEdit=editBtn.cloneNode(true);
+  editBtn.parentNode.replaceChild(newEdit,editBtn);
+  newEdit.classList.toggle('hidden',!canEdit);
+  newEdit.addEventListener('click',()=>{ closeModals(); openEditBookModal(key,room,time,bookD); });
+
+  openModal('viewInfoModal');
+}
+
+function isPastSlot(dateKey,time){
+  const ds=String(dateKey);
+  const today=todayStr();
+  const now=new Date();
+  const [h,m]=time.split(':').map(Number);
+  return (ds<today)||(ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes())));
+}
+
+// ═══════════════════════════════════
 // ADMIN DEL SETTING (fixed/lock)
 // ═══════════════════════════════════
 function openAdminDelSetModal(key,room,time,d){
@@ -1586,19 +1701,26 @@ function openEditBookModal(dateKey,room,time,d){
   const note=d.note||'';
   let selectVal='自主練習';
   if(note.startsWith('主副修課')) selectVal='主副修課';
+  else if(note.startsWith('共練')) selectVal='共練';
+  else if(note.startsWith('特別時段')) selectVal='特別時段';
   else if(note==='配伴奏') selectVal='配伴奏';
   else if(note!=='自主練習'&&note!=='') selectVal='other';
   G('editNoteSelect').value=selectVal;
-  const isLesson=selectVal==='主副修課';
-  const isOther=selectVal==='other';
-  toggle('editLessonWrap',isLesson); toggle('editNoteOtherWrap',isOther);
-  if(isLesson){ const parts=note.split('・'); G('editLessonTeacher').value=parts[1]||''; G('editLessonInstrument').value=parts[2]||''; }
-  if(isOther) G('editNoteOther').value=note;
+  toggle('editLessonWrap',selectVal==='主副修課');
+  toggle('editCoWrap',selectVal==='共練');
+  toggle('editSpecialWrap',selectVal==='特別時段');
+  toggle('editNoteOtherWrap',selectVal==='other');
+  if(selectVal==='主副修課'){ const parts=note.split('・'); G('editLessonTeacher').value=parts[1]||''; G('editLessonInstrument').value=parts[2]||''; }
+  if(selectVal==='共練'){ const parts=note.split('・'); G('editCoName').value=parts[1]||''; }
+  if(selectVal==='特別時段'){ const parts=note.split('・'); G('editSpecialTeacher').value=parts[1]||''; }
+  if(selectVal==='other') G('editNoteOther').value=note;
   hide('editErr');
   openModal('editBookModal');
 }
 G('editNoteSelect').addEventListener('change',function(){
   toggle('editLessonWrap',this.value==='主副修課');
+  toggle('editCoWrap',this.value==='共練');
+  toggle('editSpecialWrap',this.value==='特別時段');
   toggle('editNoteOtherWrap',this.value==='other');
 });
 G('confirmEditBookBtn').addEventListener('click', async ()=>{
@@ -1606,6 +1728,8 @@ G('confirmEditBookBtn').addEventListener('click', async ()=>{
   const d=sysData[key]?.[room]?.[time]; if(!d){ closeModals(); return; }
   let note=G('editNoteSelect').value;
   if(note==='主副修課'){ const t=V('editLessonTeacher'),ins=V('editLessonInstrument'); if(!t||!ins){ showMErr('editErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
+  else if(note==='共練'){ const co=V('editCoName'); if(!co){ showMErr('editErr','請填寫共練者姓名'); return; } note=`共練・${co}`; }
+  else if(note==='特別時段'){ const sp=V('editSpecialTeacher'); if(!sp){ showMErr('editErr','請填寫教師姓名'); return; } note=`特別時段・${sp}`; }
   else if(note==='other'){ note=V('editNoteOther'); if(!note){ showMErr('editErr','請填寫備注內容'); return; } }
   d.note=note; lss('jj_data',sysData);
   // 只更新 note 欄位，避免覆蓋其他人的預約
@@ -1631,18 +1755,26 @@ function openAdminWriteModal(dateKey,room,time,existingD){
   const note=existingD?.note||'';
   let sv='自主練習';
   if(note.startsWith('主副修課')) sv='主副修課';
+  else if(note.startsWith('共練')) sv='共練';
+  else if(note.startsWith('特別時段')) sv='特別時段';
   else if(note==='配伴奏') sv='配伴奏';
   else if(note!==''&&note!=='自主練習') sv='other';
   G('adminWriteNoteSelect').value=sv;
   toggle('adminWriteLessonWrap',sv==='主副修課');
+  toggle('adminWriteCoWrap',sv==='共練');
+  toggle('adminWriteSpecialWrap',sv==='特別時段');
   toggle('adminWriteNoteOtherWrap',sv==='other');
   if(sv==='主副修課'){const p=note.split('・');G('adminWriteLessonTeacher').value=p[1]||'';G('adminWriteLessonInstrument').value=p[2]||'';}
+  if(sv==='共練'){const p=note.split('・');G('adminWriteCoName').value=p[1]||'';}
+  if(sv==='特別時段'){const p=note.split('・');G('adminWriteSpecialTeacher').value=p[1]||'';}
   if(sv==='other') G('adminWriteNoteOther').value=note;
   hide('adminWriteErr');
   openModal('adminWriteModal');
 }
 G('adminWriteNoteSelect').addEventListener('change',function(){
   toggle('adminWriteLessonWrap',this.value==='主副修課');
+  toggle('adminWriteCoWrap',this.value==='共練');
+  toggle('adminWriteSpecialWrap',this.value==='特別時段');
   toggle('adminWriteNoteOtherWrap',this.value==='other');
 });
 G('confirmAdminWriteBtn').addEventListener('click', async ()=>{
@@ -1651,6 +1783,8 @@ G('confirmAdminWriteBtn').addEventListener('click', async ()=>{
   if(!name){showMErr('adminWriteErr','請填寫預約人姓名');return;}
   let note=G('adminWriteNoteSelect').value;
   if(note==='主副修課'){const t=V('adminWriteLessonTeacher'),ins=V('adminWriteLessonInstrument');if(!t||!ins){showMErr('adminWriteErr','請填寫授課老師與課程樂器');return;}note=`主副修課・${t}・${ins}`;}
+  else if(note==='共練'){const co=V('adminWriteCoName');if(!co){showMErr('adminWriteErr','請填寫共練者姓名');return;}note=`共練・${co}`;}
+  else if(note==='特別時段'){const sp=V('adminWriteSpecialTeacher');if(!sp){showMErr('adminWriteErr','請填寫教師姓名');return;}note=`特別時段・${sp}`;}
   else if(note==='other'){note=V('adminWriteNoteOther');if(!note){showMErr('adminWriteErr','請填寫備注內容');return;}}
   const ds=G('viewDate').value;
   if(!sysData[ds])sysData[ds]={};
