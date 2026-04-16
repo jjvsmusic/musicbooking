@@ -351,8 +351,11 @@ thead th.rl { z-index:12; }
         <div class="acard">
           <h3>📋 批量排課與封鎖</h3>
           <div class="mbt2"><button id="modeFixed" class="mbtbtn active" data-mode="fixed">📌 每週固定排課</button><button id="modeLock" class="mbtbtn" data-mode="lock">🚫 封鎖時段</button></div>
-          <div class="fg"><label class="fl" id="schedLabel">排課主題 / 對象</label><input id="setTeacher" class="fi" placeholder="例：王老師鋼琴課  或  場地維護"></div>
-     
+          <div class="fg">
+            <label class="fl" id="schedLabel">排課主題 / 對象</label>
+            <input id="setTeacher" class="fi" placeholder="例：王小明  或  王小明＋李美玲（多人用＋分隔）">
+            <div style="font-size:.67rem;color:var(--tx3);margin-top:3px">💡 指定多位學生皆可預約時，請用全形「＋」分隔，例：<b style="color:var(--gold2)">王小明＋李美玲</b></div>
+          </div>
           <div class="fg"><label class="fl">備注（選填）</label><input id="setRemark" class="fi" placeholder="例：請勿移動樂器"></div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用琴房</span><button class="btn bgh bsm" data-togall="adminRoom" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminRoomGrid" class="cgrid"></div></div></div>
           <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用星期</span><button class="btn bgh bsm" data-togall="adminDay" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminDayGrid" class="cgrid"></div></div></div>
@@ -585,7 +588,11 @@ thead th.rl { z-index:12; }
   </div>
   <div class="mb">
     <div class="ib" id="editFixedInfo"></div>
-    <div class="fg"><label class="fl">排課主題 / 預約人 <span style="color:var(--red2)">*</span></label><input id="editFixedTeacher" class="fi" placeholder="例：王老師鋼琴課"></div>
+    <div class="fg">
+      <label class="fl">排課主題 / 預約人 <span style="color:var(--red2)">*</span></label>
+      <input id="editFixedTeacher" class="fi" placeholder="例：王小明  或  王小明＋李美玲">
+      <div style="font-size:.67rem;color:var(--tx3);margin-top:3px">💡 多位學生皆可預約時用全形「＋」分隔，例：<b style="color:var(--gold2)">王小明＋李美玲</b></div>
+    </div>
     <div class="fg"><label class="fl">備注（選填）</label><input id="editFixedRemark" class="fi" placeholder="例：請勿移動樂器"></div>
     <div id="editFixedErr" class="ab ae hidden"></div>
   </div>
@@ -1319,11 +1326,18 @@ function updateBoard(){
   }
 }
 
+// ── 判斷 curUser 是否在固定排課的指定對象中（支援「＋」分隔多人）──
+// rawTeacher 格式：「姓名A＋姓名B・備注」，姓名前段以「＋」分隔多人
+function isNameInFixed(raw, userName){
+  if(!userName) return false;
+  const namePart = raw.split('・')[0];       // 取「・」前段
+  return namePart.split('＋').map(n=>n.trim()).includes(userName);
+}
+
 // ── FIXED SLOT RENDERING with booking rules ──
 function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday,today){
   const rawTeacher=fixedD.teacher||fixedD.note||'';
-  const teacherName=rawTeacher.split('・')[0].trim();
-  const isNameMatch=(teacherName===curUser);
+  const isNameMatch=isNameInFixed(rawTeacher, curUser);
   const ds=G('viewDate').value;
   const actualToday=todayStr();
   // 前一日才開放：今日 >= 預約日的前一天
@@ -1401,7 +1415,7 @@ function openBookModal(room,startTime,fixedD){
     let restricted=false;
     if(!isAdmin&&fixTs&&fixTs.type==='fixed'){
       const rawT=fixTs.teacher||fixTs.note||'';
-      const isNameM=rawT.split('・')[0].trim()===curUser;
+      const isNameM=isNameInFixed(rawT, curUser);
       const allowedFrom=yesterdayOf(ds);
       const actualToday2=todayStr();
       if(!isNameM&&actualToday2<allowedFrom) restricted=true;
