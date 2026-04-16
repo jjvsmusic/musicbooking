@@ -1197,7 +1197,9 @@ async function adminQuickDel(key,room,time){
   if(!d) return;
   if(d.type==='lock'||d.type==='fixed'){
     addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}（${d.teacher||d.note||'—'}）`,cancellable:false});
-    delete sysData[key][room][time]; await saveData(); updateBoard();
+    delete sysData[key][room][time]; lss('jj_data',sysData);
+    if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+    updateBoard();
     if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
   } else {
     openDeleteModal(key,room,time);
@@ -1451,16 +1453,19 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
         }
         return roomData;
       });
+      // 取得 transaction 結果的 snapshot（無需額外 FB.get()）
+      const snapVal = result.snapshot ? result.snapshot.val() : null;
       if(!result.committed){
         showMErr('bookErr',`時段 ${txConflicts.join('、')} 已被他人搶先預約，請重新選擇`);
-        // 重新整理看板以顯示最新狀態
-        const freshRoom = await FB.get(`sysData/${ds}/${room}`);
-        if(freshRoom){ if(!sysData[ds]) sysData[ds]={}; sysData[ds][room]=freshRoom; lss('jj_data',sysData); updateBoard(); }
+        // 用 snapshot 更新本地看板顯示最新狀態
+        if(snapVal!=null){ if(!sysData[ds]) sysData[ds]={}; sysData[ds][room]=snapVal; lss('jj_data',sysData); updateBoard(); }
         return;
       }
-      // 交易成功：同步本地快取
-      const freshRoom = await FB.get(`sysData/${ds}/${room}`);
-      if(freshRoom){ if(!sysData[ds]) sysData[ds]={}; sysData[ds][room]=freshRoom; lss('jj_data',sysData); }
+      // 交易成功：立即更新本地快取（優先用 snapshot，fallback 到手動設值）
+      if(!sysData[ds]) sysData[ds]={};
+      if(snapVal!=null){ sysData[ds][room]=snapVal; }
+      else { if(!sysData[ds][room]) sysData[ds][room]={}; sel.forEach(t=>{ sysData[ds][room][t]={name:curUser,note,type:'book',userType}; }); }
+      lss('jj_data',sysData);
     } catch(err){
       console.error('[Transaction] 預約失敗:', err);
       showMErr('bookErr','預約時發生錯誤，請重新整理後再試'); return;
@@ -1521,7 +1526,11 @@ G('confirmDelBtn').addEventListener('click', async ()=>{
 async function doDelete(key,room,time,logMsg){
   const d=sysData[key]?.[room]?.[time]; if(!d) return;
   addLog({t:new Date().toLocaleString('zh-TW'),msg:logMsg||`取消預約 ${room} ${key} ${time}${d.name?' ('+d.name+')':''}`,cancellable:false});
-  delete sysData[key][room][time]; await saveData(); closeModals(); updateBoard();
+  // 精準刪除單一時段，避免覆蓋其他人同時新增的預約
+  delete sysData[key][room][time];
+  lss('jj_data',sysData);
+  if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+  closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog();
 }
 
@@ -1544,7 +1553,9 @@ G('confirmAdminDelSetBtn').addEventListener('click', async ()=>{
   const d=sysData[key]?.[room]?.[time]; if(!d) return;
   const note=V('adminDelSetNote')||'管理員刪除';
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}，備注：${note}`,cancellable:false});
-  delete sysData[key][room][time]; await saveData(); closeModals(); updateBoard();
+  delete sysData[key][room][time]; lss('jj_data',sysData);
+  if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+  closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
 });
 // ═══════════════════════════════════
@@ -1582,7 +1593,10 @@ G('confirmEditBookBtn').addEventListener('click', async ()=>{
   let note=G('editNoteSelect').value;
   if(note==='主副修課'){ const t=V('editLessonTeacher'),ins=V('editLessonInstrument'); if(!t||!ins){ showMErr('editErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
   else if(note==='other'){ note=V('editNoteOther'); if(!note){ showMErr('editErr','請填寫備注內容'); return; } }
-  d.note=note; await saveData(); closeModals(); updateBoard();
+  d.note=note; lss('jj_data',sysData);
+  // 只更新 note 欄位，避免覆蓋其他人的預約
+  if(fbMode) await FB.update(`sysData/${key}/${room}/${time}`,{note});
+  closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog();
   toast('預約備注已修改','s');
 });
@@ -1628,9 +1642,13 @@ G('confirmAdminWriteBtn').addEventListener('click', async ()=>{
   if(!sysData[ds])sysData[ds]={};
   if(!sysData[ds][room])sysData[ds][room]={};
   const utype=users[name]?.type||'student';
-  sysData[ds][room][time]={name,note,type:'book',userType:utype};
+  const slotVal={name,note,type:'book',userType:utype};
+  sysData[ds][room][time]=slotVal;
+  lss('jj_data',sysData);
+  // 精準寫入單一時段，不覆蓋整棵 sysData
+  if(fbMode) await FB.set(`sysData/${ds}/${room}/${time}`, slotVal);
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 代填預約 ${room} ${ds} ${time}（${name}・${note}）`,cancellable:false});
-  await saveData();closeModals();updateBoard();refreshAdminLog();
+  closeModals();updateBoard();refreshAdminLog();
   toast(`✅ 已代填：${name} · ${room} · ${time}`,'s');
 });
 
@@ -1661,8 +1679,11 @@ G('confirmEditFixedBtn').addEventListener('click', async ()=>{
   const remark=V('editFixedRemark');
   const label=teacher+(remark?'・'+remark:'');
   d.teacher=label; d.remark=remark||'';
+  lss('jj_data',sysData);
+  // 只更新 teacher/remark 欄位，不覆蓋整棵 sysData
+  if(fbMode) await FB.update(`sysData/${key}/${room}/${time}`,{teacher:label,remark:remark||''});
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 修改固定排課 ${room} ${key} ${time} → ${label}`,cancellable:false});
-  await saveData();closeModals();updateBoard();refreshAdminLog();
+  closeModals();updateBoard();refreshAdminLog();
   toast('固定排課已修改','s');
 });
 
@@ -1958,7 +1979,7 @@ function renderLogPanel(category){
       const msg=bookExists?`確定刪除此日誌並同時取消 ${l.bookRoom} 的預約？`:'確定刪除此筆日誌記錄？';
       const sub=bookExists?'預約將從看板移除，不會通知預約者。':'此操作無法復原';
       showConfirm(msg, sub, async ()=>{
-        if(bookExists){ delete sysData[l.bookKey][l.bookRoom][l.bookTime]; await saveData(); updateBoard(); }
+        if(bookExists){ delete sysData[l.bookKey][l.bookRoom][l.bookTime]; lss('jj_data',sysData); if(fbMode) await FB.remove(`sysData/${l.bookKey}/${l.bookRoom}/${l.bookTime}`); updateBoard(); }
         logs.splice(i,1); saveLogs(); refreshAdminLog(); updateCleanupStatus();
         toast(bookExists?'預約及日誌已刪除':'日誌已刪除','i');
       });
