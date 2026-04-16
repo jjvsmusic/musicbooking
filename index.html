@@ -228,6 +228,28 @@ thead th.rl { z-index:12; }
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
 .hidden{display:none!important}.flex{display:flex}.gap8{gap:8px}.gap6{gap:6px}.flex1{flex:1}
 .mt4{margin-top:4px}.mt8{margin-top:8px}.txs{font-size:.7rem}.txm{color:var(--tx3)}
+
+/* ── QUERY MODAL ── */
+.qri{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s;gap:10px}
+.qri:last-child{border-bottom:none}
+.qri:hover{background:rgba(212,175,55,.06)}
+.qri-left{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.qri-date{font-size:.8rem;font-weight:600;color:var(--tx)}
+.qri-dow{font-size:.75rem;font-weight:400;color:var(--tx3)}
+.qri-room{font-size:.76rem;color:var(--tx2)}
+.qri-note{font-size:.7rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qri-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.qbadge{font-size:.68rem;font-weight:600;padding:2px 10px;border-radius:10px}
+.qb-past{background:rgba(100,100,100,.12);color:var(--tx3);border:1px solid rgba(100,100,100,.2)}
+.qb-today{background:rgba(212,175,55,.14);color:var(--gold2);border:1px solid rgba(212,175,55,.35)}
+.qb-future{background:rgba(39,174,96,.12);color:var(--grn2);border:1px solid rgba(39,174,96,.3)}
+.qstat-row{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 2px;font-size:.74rem}
+.qstat-item{display:flex;align-items:center;gap:5px}
+.qstat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.qno-result{padding:28px 0;text-align:center;color:var(--tx3);font-size:.82rem}
+.query-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--bd);padding-bottom:0}
+.qtab{background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:6px 14px;font-size:.76rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;transition:all .15s}
+.qtab.active{color:var(--blue2);border-bottom-color:var(--blue2);font-weight:600}
 </style>
 </head>
 <body id="mainBody">
@@ -284,13 +306,18 @@ thead th.rl { z-index:12; }
         <input type="date" id="viewDate" class="date-input">
         <button class="btn bgh bsm" id="btnToday" style="padding:4px 10px;font-size:.72rem;white-space:nowrap">今日</button>
         <span id="dayDisplay" class="day-badge"></span>
-        
+
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn bg bsm" id="btnAM">☀ 上午</button>
           <button class="btn bgh bsm" id="btnPM">🌆 下午</button>
           <button class="btn bgh bsm" id="btnEV">🌙 放學後</button>
         </div>
         <span id="viewRangeLabel" class="txs txm" style="white-space:nowrap">08:00–13:00</span>
+
+        <!-- 查詢按鈕 -->
+        <button class="btn bgh bsm" id="btnQuery" style="padding:4px 12px;font-size:.72rem;white-space:nowrap;border-color:var(--blue);color:var(--blue2)">🔍 查詢預約</button>
+        <button class="btn bgh bsm" id="btnMyBookings" style="padding:4px 12px;font-size:.72rem;white-space:nowrap;border-color:var(--gold);color:var(--gold2);display:none">📋 我的預約</button>
+
         <div class="legend">
           <div class="leg"><div class="ldot" style="background:var(--blue2)"></div>學生預約</div>
           <div class="leg"><div class="ldot" style="background:var(--pur2)"></div>教師預約</div>
@@ -568,6 +595,53 @@ thead th.rl { z-index:12; }
   </div>
 </div>
 
+<!-- ═══ 查詢預約 Modal ═══ -->
+<div class="modal" id="queryModal" style="width:580px">
+  <div class="mh">
+    <div class="mt" style="color:var(--blue2)">🔍 查詢預約狀況</div>
+    <button class="mc" data-close>×</button>
+  </div>
+  <div class="mb" style="gap:12px">
+
+    <!-- 搜尋列 -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="fg flex1" style="min-width:130px">
+        <label class="fl">預約人姓名</label>
+        <input id="queryName" class="fi" placeholder="輸入姓名…" list="queryNameList" autocomplete="off">
+        <datalist id="queryNameList"></datalist>
+      </div>
+      <div class="fg" style="width:130px">
+        <label class="fl">起始日期</label>
+        <input id="queryFrom" type="date" class="fi" style="font-size:.78rem;padding:7px 8px">
+      </div>
+      <div class="fg" style="width:130px">
+        <label class="fl">結束日期</label>
+        <input id="queryTo" type="date" class="fi" style="font-size:.78rem;padding:7px 8px">
+      </div>
+      <button class="btn bg bsm" id="doQueryBtn" style="white-space:nowrap;padding:9px 16px">🔍 查詢</button>
+    </div>
+
+    <!-- 統計摘要 -->
+    <div id="queryStatRow" class="qstat-row hidden"></div>
+
+    <!-- 分頁 Tab -->
+    <div id="queryTabBar" class="query-tabs hidden">
+      <button class="qtab active" data-qtab="all">全部</button>
+      <button class="qtab" data-qtab="future">未來／今日</button>
+      <button class="qtab" data-qtab="past">已過去</button>
+    </div>
+
+    <!-- 結果列表 -->
+    <div id="queryResultList" style="border:1px solid var(--bd);border-radius:8px;background:var(--bg4);min-height:60px;overflow-y:auto;max-height:400px">
+      <div class="qno-result">請輸入姓名後點擊查詢</div>
+    </div>
+  </div>
+  <div class="mf">
+    <span id="queryTotalLabel" class="txs txm flex1" style="text-align:left"></span>
+    <button class="btn bgh bsm" data-close>關閉</button>
+  </div>
+</div>
+
 <div class="tw" id="toastWrap"></div>
 
 <script>
@@ -784,7 +858,7 @@ function closeModal(id){ const el=G(id); if(el) el.style.display='none'; }
 function closeModals(){
   if(forcePwdChange) return;
   G('overlay').style.display='none';
-  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal','adminWriteModal','editFixedModal'].forEach(id=>closeModal(id));
+  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal','adminWriteModal','editFixedModal','queryModal'].forEach(id=>closeModal(id));
 }
 function showMErr(id,msg){ const e=G(id); e.textContent=msg; e.classList.remove('hidden'); }
 
@@ -878,6 +952,7 @@ function enterApp(name){
   G('pillRole').className=isAdmin?'admin-tag':'role-tag';
   G('userPill').style.display='flex';
   hide('navLoginBtn');
+  G('btnMyBookings').style.display='inline-flex';  // 顯示「我的預約」快捷鈕
   if(isAdmin){ show('navAdmin'); document.getElementById('mainBody').classList.add('is-admin'); G('adminBadge').style.display='inline'; }
   else { hide('navAdmin'); document.getElementById('mainBody').classList.remove('is-admin'); G('adminBadge').style.display='none'; }
   show('logoutBtn');
@@ -896,6 +971,7 @@ function doLogout(){
   curUser=''; isAdmin=false; forcePwdChange=false;
   document.getElementById('mainBody').classList.remove('is-admin');
   G('adminBadge').style.display='none'; G('userPill').style.display='none';
+  G('btnMyBookings').style.display='none';  // 隱藏「我的預約」快捷鈕
   hide('navAdmin'); hide('logoutBtn'); show('navLoginBtn');
   G('adminPage').classList.remove('active');
   G('boardPage').classList.add('active');
@@ -2128,6 +2204,185 @@ async function appBoot(){
   scheduleCleanup();
 }
 
+// ═══════════════════════════════════
+// QUERY BOOKING (查詢預約狀況)
+// ═══════════════════════════════════
+let queryResults = [];   // 全部查詢結果
+let queryTab = 'all';    // 目前分頁
+
+function openQueryModal(prefillName=''){
+  // 重設
+  queryResults = [];
+  queryTab = 'all';
+  G('queryResultList').innerHTML = '<div class="qno-result">請輸入姓名後點擊查詢</div>';
+  G('queryStatRow').classList.add('hidden');
+  G('queryTabBar').classList.add('hidden');
+  G('queryTotalLabel').textContent = '';
+  // 預填名稱
+  G('queryName').value = prefillName || (curUser || '');
+  // datalist：管理員顯示所有人，一般人顯示所有人（預約看板本為公開資訊）
+  G('queryNameList').innerHTML = Object.keys(users).map(u=>`<option value="${esc(u)}">`).join('');
+  // 日期範圍預設：14 天前 ~ 30 天後
+  const past14 = new Date(); past14.setDate(past14.getDate()-14);
+  const next30 = new Date(); next30.setDate(next30.getDate()+30);
+  G('queryFrom').value = dateStr(past14);
+  G('queryTo').value   = dateStr(next30);
+  // 重置 tab 樣式
+  QA('.qtab').forEach(b=>b.classList.toggle('active', b.dataset.qtab==='all'));
+  openModal('queryModal');
+  // 若有預填姓名，自動執行查詢
+  if(prefillName) setTimeout(doQuery, 80);
+}
+
+function doQuery(){
+  const name = G('queryName').value.trim();
+  if(!name){ toast('請輸入姓名','e'); return; }
+  const fromD = G('queryFrom').value;
+  const toD   = G('queryTo').value;
+  const today = todayStr();
+
+  queryResults = [];
+
+  Object.keys(sysData).forEach(dateKey=>{
+    // 只處理日期型 key（非 DOW 0-6）
+    if(/^\d$/.test(dateKey)) return;
+    if(fromD && dateKey < fromD) return;
+    if(toD   && dateKey > toD)   return;
+    const dateData = sysData[dateKey];
+    if(!dateData) return;
+    Object.keys(dateData).forEach(room=>{
+      const roomData = dateData[room];
+      if(!roomData) return;
+      Object.keys(roomData).forEach(time=>{
+        const entry = roomData[time];
+        if(!entry || entry.type !== 'book') return;
+        if(entry.name !== name) return;
+        let status, badgeCls;
+        if(dateKey < today)       { status='已過去'; badgeCls='qb-past'; }
+        else if(dateKey === today) { status='今日';   badgeCls='qb-today'; }
+        else                       { status='待使用'; badgeCls='qb-future'; }
+        const dow = new Date(dateKey+'T00:00:00').getDay();
+        queryResults.push({ dateKey, dow, room, time, note: entry.note||'—', status, badgeCls });
+      });
+    });
+  });
+
+  // 依日期、時段排序
+  queryResults.sort((a,b)=> a.dateKey.localeCompare(b.dateKey)||a.time.localeCompare(b.time));
+
+  // 統計
+  const total   = queryResults.length;
+  const past    = queryResults.filter(r=>r.status==='已過去').length;
+  const todayCt = queryResults.filter(r=>r.status==='今日').length;
+  const future  = queryResults.filter(r=>r.status==='待使用').length;
+
+  if(total===0){
+    G('queryResultList').innerHTML = '<div class="qno-result">查無預約記錄（此期間內）</div>';
+    G('queryStatRow').classList.add('hidden');
+    G('queryTabBar').classList.add('hidden');
+    G('queryTotalLabel').textContent = `${name} 在此區間無預約`;
+    return;
+  }
+
+  // 顯示統計摘要
+  G('queryStatRow').innerHTML = `
+    <div class="qstat-item"><div class="qstat-dot" style="background:var(--tx3)"></div><span style="color:var(--tx3)">已過去 <b>${past}</b></span></div>
+    <div class="qstat-item"><div class="qstat-dot" style="background:var(--gold2)"></div><span style="color:var(--gold2)">今日 <b>${todayCt}</b></span></div>
+    <div class="qstat-item"><div class="qstat-dot" style="background:var(--grn2)"></div><span style="color:var(--grn2)">待使用 <b>${future}</b></span></div>`;
+  G('queryStatRow').classList.remove('hidden');
+  G('queryTabBar').classList.remove('hidden');
+  G('queryTotalLabel').textContent = `共 ${total} 筆 · ${name}`;
+
+  renderQueryList();
+}
+
+function renderQueryList(){
+  const filter = queryTab;
+  let list = queryResults;
+  if(filter==='future') list = queryResults.filter(r=>r.status!=='已過去');
+  if(filter==='past')   list = queryResults.filter(r=>r.status==='已過去');
+
+  if(!list.length){
+    G('queryResultList').innerHTML = '<div class="qno-result">此分類無資料</div>';
+    return;
+  }
+
+  // 按日期分組
+  const groups = {};
+  list.forEach(r=>{ if(!groups[r.dateKey]) groups[r.dateKey]=[]; groups[r.dateKey].push(r); });
+
+  let html = '';
+  Object.keys(groups).sort().forEach(dateKey=>{
+    const rows = groups[dateKey];
+    const dow  = rows[0].dow;
+    const today = todayStr();
+    const isToday = (dateKey===today);
+    html += `<div style="background:${isToday?'rgba(212,175,55,.06)':'var(--bg2)'};border-bottom:2px solid var(--bd);padding:6px 13px 4px;font-size:.72rem;font-weight:600;color:${isToday?'var(--gold2)':'var(--tx2)'};display:flex;align-items:center;gap:6px">
+      <span>${dateKey}</span><span style="font-weight:400;color:var(--tx3)">週${DAYS[dow]}</span>
+      ${isToday?'<span style="background:var(--gold);color:#fff;border-radius:8px;padding:1px 8px;font-size:.62rem">今日</span>':''}
+    </div>`;
+    rows.forEach(r=>{
+      // 計算是否為今日且時段已過
+      const now = new Date();
+      const [rh,rm] = r.time.split(':').map(Number);
+      const slotPast = (r.dateKey < today) || (isToday && (rh < now.getHours() || (rh===now.getHours()&&rm<=now.getMinutes())));
+      html += `<div class="qri" data-date="${esc(r.dateKey)}">
+        <div class="qri-left">
+          <div class="qri-room">${esc(r.room)} &nbsp;<span style="color:var(--tx3)">·</span>&nbsp; <b style="color:var(--tx)">${esc(r.time)}</b></div>
+          <div class="qri-note">${esc(r.note)}</div>
+        </div>
+        <div class="qri-right">
+          <span class="qbadge ${r.badgeCls}">${r.status}${slotPast&&isToday?' (已過)':''}</span>
+          <span style="font-size:.6rem;color:var(--tx3)">點擊跳至看板</span>
+        </div>
+      </div>`;
+    });
+  });
+
+  G('queryResultList').innerHTML = html;
+
+  // 點擊跳至對應日期
+  G('queryResultList').querySelectorAll('.qri').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const d = el.dataset.date;
+      G('viewDate').value = d;
+      closeModals();
+      // 自動切換到該時段對應的時間欄（上午/下午/放學後）
+      const firstTime = el.querySelector('.qri-room b')?.textContent||'';
+      if(firstTime){
+        const h = parseInt(firstTime.split(':')[0],10);
+        if(h>=17&&(h>17||(firstTime.split(':')[1]||'0')>='30')) boardView='ev';
+        else if(h>=13) boardView='pm';
+        else boardView='am';
+        ['am','pm','ev'].forEach(v=>{
+          const id = v==='am'?'btnAM':v==='pm'?'btnPM':'btnEV';
+          G(id).className='btn '+(boardView===v?'bg':'bgh')+' bsm';
+        });
+        const labels={'am':'08:00–13:00','pm':'13:00–17:30','ev':'17:30–21:30'};
+        G('viewRangeLabel').textContent = labels[boardView];
+      }
+      updateBoard();
+      G('boardPage').scrollIntoView({behavior:'smooth'});
+    });
+  });
+}
+
+// Tab 切換
+document.addEventListener('click',ev=>{
+  const qtb = ev.target.closest('.qtab');
+  if(!qtb||!G('queryModal').style.display||G('queryModal').style.display==='none') return;
+  queryTab = qtb.dataset.qtab;
+  QA('.qtab').forEach(b=>b.classList.toggle('active',b.dataset.qtab===queryTab));
+  renderQueryList();
+});
+
+// 按鈕事件
+G('btnQuery').addEventListener('click',()=>openQueryModal());
+G('btnMyBookings').addEventListener('click',()=>openQueryModal(curUser));
+G('doQueryBtn').addEventListener('click',doQuery);
+G('queryName').addEventListener('keydown',e=>{ if(e.key==='Enter') doQuery(); });
+
+// ═══════════════════════════════════
 // 根據當前時間自動選擇上午／下午／放學後
 function autoSetBoardView(){
   const now=new Date();
