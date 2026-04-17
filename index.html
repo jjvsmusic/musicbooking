@@ -505,7 +505,7 @@ thead th.rl { z-index:12; }
     <div class="fg"><label class="fl">備注類型</label><select id="bookNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="共練">自主練習與他人共練</option><option value="特別時段">教師同意特別時段練習</option><option value="other">其他</option></select></div>
     <div id="lessonWrap" class="hidden flex gap8"><div class="fg flex1"><label class="fl">授課老師</label><input id="lessonTeacher" class="fi" placeholder="例：王老師"></div><div class="fg flex1"><label class="fl">課程樂器</label><input id="lessonInstrument" class="fi" placeholder="例：鋼琴"></div></div>
     <div id="bookCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="bookCoName" class="fi" placeholder="請輸入共練者姓名"></div>
-    <div id="bookSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="bookSpecialTeacher" class="fi" placeholder="請輸入同意的教師姓名"></div>
+    <div id="bookSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="bookSpecialTeacher" class="fi" placeholder="輸入姓名（系統自動加「教師」）"></div>
     <div id="noteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="bookNoteOther" class="fi" placeholder="請輸入備注"></div>
     <div><div class="fl" style="margin-bottom:6px">選擇時段 <span class="txm txs">（可複選）</span></div><div class="cbox"><div id="bookTimeGrid" class="cgrid"></div></div></div>
     <div id="bookErr" class="ab ae hidden"></div>
@@ -540,7 +540,7 @@ thead th.rl { z-index:12; }
     <div class="fg"><label class="fl">備注類型</label><select id="editNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="共練">自主練習與他人共練</option><option value="特別時段">教師同意特別時段練習</option><option value="other">其他</option></select></div>
     <div id="editLessonWrap" class="hidden flex gap8"><div class="fg flex1"><label class="fl">授課老師</label><input id="editLessonTeacher" class="fi" placeholder="例：王老師"></div><div class="fg flex1"><label class="fl">課程樂器</label><input id="editLessonInstrument" class="fi" placeholder="例：鋼琴"></div></div>
     <div id="editCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="editCoName" class="fi" placeholder="請輸入共練者姓名"></div>
-    <div id="editSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="editSpecialTeacher" class="fi" placeholder="請輸入同意的教師姓名"></div>
+    <div id="editSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="editSpecialTeacher" class="fi" placeholder="輸入姓名（系統自動加「教師」）"></div>
     <div id="editNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="editNoteOther" class="fi" placeholder="請輸入備注"></div>
     <div id="editErr" class="ab ae hidden"></div>
   </div>
@@ -588,7 +588,7 @@ thead th.rl { z-index:12; }
       <div class="fg flex1"><label class="fl">課程樂器</label><input id="adminWriteLessonInstrument" class="fi" placeholder="例：鋼琴"></div>
     </div>
     <div id="adminWriteCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteCoName" class="fi" placeholder="請輸入共練者姓名"></div>
-    <div id="adminWriteSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteSpecialTeacher" class="fi" placeholder="請輸入同意的教師姓名"></div>
+    <div id="adminWriteSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteSpecialTeacher" class="fi" placeholder="輸入姓名（系統自動加「教師」）"></div>
     <div id="adminWriteNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="adminWriteNoteOther" class="fi" placeholder="請輸入備注"></div>
     <div id="adminWriteErr" class="ab ae hidden"></div>
   </div>
@@ -672,7 +672,7 @@ thead th.rl { z-index:12; }
   <div class="mb">
     <div id="viewInfoFixedNotice" class="fn hidden" style="margin-bottom:0">
       <span>📌</span>
-      <div><strong>原固定使用者：</strong><span id="viewInfoFixed"></span><br><span id="viewInfoSbo" class="hidden" style="color:var(--red2);font-size:.73rem;font-weight:600">⚠ 此時段由非指定人員搶先於前一日預約</span></div>
+      <div><strong>原固定使用者：</strong><span id="viewInfoFixed"></span><br><span id="viewInfoSbo" class="hidden" style="color:var(--red2);font-size:.73rem;font-weight:600">⚠ 因原固定使用者未預約，開放他人前一日預約</span></div>
     </div>
     <div class="ib" id="viewInfoContent"></div>
   </div>
@@ -1308,7 +1308,9 @@ function updateBoard(){
             const isT=users[bookD.name]?.type==='teacher'||users[bookD.name]?.type==='admin';
 
             // Feature 2: 固定排課但被非指定對象於前一日預約 → 紅色背景
-            const isSboSlot = fixedD && fixedD.type==='fixed' && !isNameInFixed(fixedD.teacher||fixedD.note||'', bookD.name);
+            // 同時支援週期固定（fixedD from dowKey）及日期型固定（bookD.origFixed）
+            const fixedRawForCheck = fixedD?.type==='fixed' ? (fixedD.teacher||fixedD.note||'') : (bookD.origFixed||'');
+            const isSboSlot = !!fixedRawForCheck && !isNameInFixed(fixedRawForCheck, bookD.name);
 
             if(isSboSlot){
               slot.className='slot sbo'+(isPast?' pv':'');
@@ -1500,12 +1502,22 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
   let note=G('bookNoteSelect').value;
   if(note==='主副修課'){ const t=V('lessonTeacher'),ins=V('lessonInstrument'); if(!t||!ins){ showMErr('bookErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
   else if(note==='共練'){ const co=V('bookCoName'); if(!co){ showMErr('bookErr','請填寫共練者姓名'); return; } note=`共練・${co}`; }
-  else if(note==='特別時段'){ const sp=V('bookSpecialTeacher'); if(!sp){ showMErr('bookErr','請填寫教師姓名'); return; } note=`特別時段・${sp}`; }
+  else if(note==='特別時段'){ const sp=V('bookSpecialTeacher'); if(!sp){ showMErr('bookErr','請填寫教師姓名'); return; } note=`特別時段・${sp}教師`; }
   else if(note==='other'){ note=V('bookNoteOther'); if(!note){ showMErr('bookErr','請填寫備注內容'); return; } }
   const sel=QA('input[name="bTime"]:checked').map(e=>e.value);
   if(!sel.length){ showMErr('bookErr','請至少選擇一個時段'); return; }
   const {room}=pending;
   const userType=users[curUser]?.type;
+  // 預先計算各時段的原始固定排課資訊（供紅色顯示 Feature 2 使用）
+  const dowKey2 = String(new Date(ds+'T00:00:00').getDay());
+  const origFixedMap={};
+  sel.forEach(t=>{
+    const dSlot=sysData[ds]?.[room]?.[t];
+    const wSlot=sysData[dowKey2]?.[room]?.[t];
+    const orig = dSlot?.type==='fixed' ? (dSlot.teacher||dSlot.note||'') :
+                 wSlot?.type==='fixed'  ? (wSlot.teacher||wSlot.note||'') : null;
+    if(orig) origFixedMap[t]=orig;
+  });
 
   // ── Firebase 模式：使用 runTransaction 原子性寫入，防止多人同時搶同一時段 ──
   if(fbMode){
@@ -1522,9 +1534,14 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
           }
         }
         if(txConflicts.length) return; // 回傳 undefined = 中止交易，不寫入
-        // 全部時段可用，寫入
+        // 全部時段可用，寫入（同時保存原固定資訊，供 Feature 2 紅色顯示）
         for(const t of sel){
-          roomData[t]={name:curUser,note,type:'book',userType};
+          // 優先從 server roomData 取得 date-specific fixed，再 fallback 到本地週期固定
+          const srvFixed = roomData[t]?.type==='fixed' ? (roomData[t].teacher||roomData[t].note||'') : null;
+          const orig = srvFixed || origFixedMap[t] || null;
+          const entry={name:curUser,note,type:'book',userType};
+          if(orig) entry.origFixed=orig;
+          roomData[t]=entry;
         }
         return roomData;
       });
@@ -1539,7 +1556,14 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
       // 交易成功：立即更新本地快取（優先用 snapshot，fallback 到手動設值）
       if(!sysData[ds]) sysData[ds]={};
       if(snapVal!=null){ sysData[ds][room]=snapVal; }
-      else { if(!sysData[ds][room]) sysData[ds][room]={}; sel.forEach(t=>{ sysData[ds][room][t]={name:curUser,note,type:'book',userType}; }); }
+      else {
+        if(!sysData[ds][room]) sysData[ds][room]={};
+        sel.forEach(t=>{
+          const entry={name:curUser,note,type:'book',userType};
+          if(origFixedMap[t]) entry.origFixed=origFixedMap[t];
+          sysData[ds][room][t]=entry;
+        });
+      }
       lss('jj_data',sysData);
     } catch(err){
       console.error('[Transaction] 預約失敗:', err);
@@ -1551,7 +1575,11 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
     if(!sysData[ds][room]) sysData[ds][room]={};
     const conflicts=sel.filter(t=>{ const d=sysData[ds][room][t]; return d&&d.type!=='fixed'; });
     if(conflicts.length){ showMErr('bookErr',`時段 ${conflicts.join('、')} 已被佔用`); return; }
-    sel.forEach(t=>{ sysData[ds][room][t]={name:curUser,note,type:'book',userType}; });
+    sel.forEach(t=>{
+      const entry={name:curUser,note,type:'book',userType};
+      if(origFixedMap[t]) entry.origFixed=origFixedMap[t];
+      sysData[ds][room][t]=entry;
+    });
     lss('jj_data',sysData);
   }
 
@@ -1620,8 +1648,8 @@ function openViewInfoModal(dateKey,room,time,bookD,fixedD,isSboSlot){
   const canCancel = !isPastSlot(dateKey,time) && (isOwn || isAdmin);
   const canEdit   = isAdmin && !isPastSlot(dateKey,time);
 
-  // Feature 2: 顯示原固定使用者
-  const fixedRaw = fixedD ? (fixedD.teacher||fixedD.note||'') : '';
+  // Feature 2: 顯示原固定使用者（同時支援週期固定及日期型固定）
+  const fixedRaw = (fixedD?.type==='fixed' ? (fixedD.teacher||fixedD.note||'') : '') || (bookD.origFixed||'');
   toggle('viewInfoFixedNotice', !!fixedRaw);
   if(fixedRaw){
     G('viewInfoFixed').textContent=fixedRaw;
@@ -1712,7 +1740,7 @@ function openEditBookModal(dateKey,room,time,d){
   toggle('editNoteOtherWrap',selectVal==='other');
   if(selectVal==='主副修課'){ const parts=note.split('・'); G('editLessonTeacher').value=parts[1]||''; G('editLessonInstrument').value=parts[2]||''; }
   if(selectVal==='共練'){ const parts=note.split('・'); G('editCoName').value=parts[1]||''; }
-  if(selectVal==='特別時段'){ const parts=note.split('・'); G('editSpecialTeacher').value=parts[1]||''; }
+  if(selectVal==='特別時段'){ const parts=note.split('・'); G('editSpecialTeacher').value=(parts[1]||'').replace(/教師$/, ''); }
   if(selectVal==='other') G('editNoteOther').value=note;
   hide('editErr');
   openModal('editBookModal');
@@ -1729,7 +1757,7 @@ G('confirmEditBookBtn').addEventListener('click', async ()=>{
   let note=G('editNoteSelect').value;
   if(note==='主副修課'){ const t=V('editLessonTeacher'),ins=V('editLessonInstrument'); if(!t||!ins){ showMErr('editErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
   else if(note==='共練'){ const co=V('editCoName'); if(!co){ showMErr('editErr','請填寫共練者姓名'); return; } note=`共練・${co}`; }
-  else if(note==='特別時段'){ const sp=V('editSpecialTeacher'); if(!sp){ showMErr('editErr','請填寫教師姓名'); return; } note=`特別時段・${sp}`; }
+  else if(note==='特別時段'){ const sp=V('editSpecialTeacher'); if(!sp){ showMErr('editErr','請填寫教師姓名'); return; } note=`特別時段・${sp}教師`; }
   else if(note==='other'){ note=V('editNoteOther'); if(!note){ showMErr('editErr','請填寫備注內容'); return; } }
   d.note=note; lss('jj_data',sysData);
   // 只更新 note 欄位，避免覆蓋其他人的預約
@@ -1766,7 +1794,7 @@ function openAdminWriteModal(dateKey,room,time,existingD){
   toggle('adminWriteNoteOtherWrap',sv==='other');
   if(sv==='主副修課'){const p=note.split('・');G('adminWriteLessonTeacher').value=p[1]||'';G('adminWriteLessonInstrument').value=p[2]||'';}
   if(sv==='共練'){const p=note.split('・');G('adminWriteCoName').value=p[1]||'';}
-  if(sv==='特別時段'){const p=note.split('・');G('adminWriteSpecialTeacher').value=p[1]||'';}
+  if(sv==='特別時段'){const p=note.split('・');G('adminWriteSpecialTeacher').value=(p[1]||'').replace(/教師$/, '');}
   if(sv==='other') G('adminWriteNoteOther').value=note;
   hide('adminWriteErr');
   openModal('adminWriteModal');
@@ -1784,13 +1812,20 @@ G('confirmAdminWriteBtn').addEventListener('click', async ()=>{
   let note=G('adminWriteNoteSelect').value;
   if(note==='主副修課'){const t=V('adminWriteLessonTeacher'),ins=V('adminWriteLessonInstrument');if(!t||!ins){showMErr('adminWriteErr','請填寫授課老師與課程樂器');return;}note=`主副修課・${t}・${ins}`;}
   else if(note==='共練'){const co=V('adminWriteCoName');if(!co){showMErr('adminWriteErr','請填寫共練者姓名');return;}note=`共練・${co}`;}
-  else if(note==='特別時段'){const sp=V('adminWriteSpecialTeacher');if(!sp){showMErr('adminWriteErr','請填寫教師姓名');return;}note=`特別時段・${sp}`;}
+  else if(note==='特別時段'){const sp=V('adminWriteSpecialTeacher');if(!sp){showMErr('adminWriteErr','請填寫教師姓名');return;}note=`特別時段・${sp}教師`;}
   else if(note==='other'){note=V('adminWriteNoteOther');if(!note){showMErr('adminWriteErr','請填寫備注內容');return;}}
   const ds=G('viewDate').value;
   if(!sysData[ds])sysData[ds]={};
   if(!sysData[ds][room])sysData[ds][room]={};
   const utype=users[name]?.type||'student';
+  // 保存原固定排課資訊（供 Feature 2 紅色顯示）
+  const adDowKey=String(new Date(ds+'T00:00:00').getDay());
+  const adDateSlot=sysData[ds][room][time];
+  const adWeekSlot=sysData[adDowKey]?.[room]?.[time];
+  const adOrig = adDateSlot?.type==='fixed' ? (adDateSlot.teacher||adDateSlot.note||'') :
+                 adWeekSlot?.type==='fixed'  ? (adWeekSlot.teacher||adWeekSlot.note||'') : null;
   const slotVal={name,note,type:'book',userType:utype};
+  if(adOrig) slotVal.origFixed=adOrig;
   sysData[ds][room][time]=slotVal;
   lss('jj_data',sysData);
   // 精準寫入單一時段，不覆蓋整棵 sysData
