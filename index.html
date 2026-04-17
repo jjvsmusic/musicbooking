@@ -1310,7 +1310,10 @@ function updateBoard(){
             // Feature 2: 固定排課但被非指定對象於前一日預約 → 紅色背景
             // 同時支援週期固定（fixedD from dowKey）及日期型固定（bookD.origFixed）
             const fixedRawForCheck = fixedD?.type==='fixed' ? (fixedD.teacher||fixedD.note||'') : (bookD.origFixed||'');
-            const isSboSlot = !!fixedRawForCheck && !isNameInFixed(fixedRawForCheck, bookD.name);
+            // 例外：備注為「主副修課」且授課教師為固定排課指定對象 → 視為正常使用，依預約人身份顯色
+            const lessonTeacher = (bookD.note||'').startsWith('主副修課・') ? (bookD.note.split('・')[1]||'') : '';
+            const isLessonWithDesignee = !!fixedRawForCheck && !!lessonTeacher && isNameInFixed(fixedRawForCheck, lessonTeacher);
+            const isSboSlot = !!fixedRawForCheck && !isNameInFixed(fixedRawForCheck, bookD.name) && !isLessonWithDesignee;
 
             if(isSboSlot){
               slot.className='slot sbo'+(isPast?' pv':'');
@@ -1629,10 +1632,29 @@ G('confirmDelBtn').addEventListener('click', async ()=>{
 async function doDelete(key,room,time,logMsg){
   const d=sysData[key]?.[room]?.[time]; if(!d) return;
   addLog({t:new Date().toLocaleString('zh-TW'),msg:logMsg||`取消預約 ${room} ${key} ${time}${d.name?' ('+d.name+')':''}`,cancellable:false});
-  // 精準刪除單一時段，避免覆蓋其他人同時新增的預約
-  delete sysData[key][room][time];
-  lss('jj_data',sysData);
-  if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+
+  // ── Feature 2 還原：若此預約覆蓋了日期型固定排課（origFixed），且無對應週期固定，則還原固定排課 ──
+  const origFixed = d.origFixed||'';
+  const isDateKey = !/^\d$/.test(key);
+  let restored = false;
+  if(origFixed && isDateKey){
+    const dowKey3 = String(new Date(key+'T00:00:00').getDay());
+    const hasWeeklyFixed = sysData[dowKey3]?.[room]?.[time]?.type==='fixed';
+    if(!hasWeeklyFixed){
+      // 還原日期型固定排課
+      const fixedEntry = {type:'fixed', teacher: origFixed};
+      sysData[key][room][time] = fixedEntry;
+      lss('jj_data',sysData);
+      if(fbMode) await FB.set(`sysData/${key}/${room}/${time}`, fixedEntry);
+      restored = true;
+    }
+  }
+  if(!restored){
+    delete sysData[key][room][time];
+    lss('jj_data',sysData);
+    if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+  }
+
   closeModals(); updateBoard();
   if(isAdmin) refreshAdminLog();
 }
