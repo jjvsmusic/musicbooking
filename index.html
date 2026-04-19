@@ -1,140 +1,1289 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>莊敬音樂科 · 琴房預約系統</title>
+
+<!-- ══ PWA 設定 ══ -->
+<!-- iOS Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="琴房預約">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjM2IiBmaWxsPSIjN0IxRjNFIi8+PHRleHQgeD0iOTYiIHk9IjEyNCIgZm9udC1zaXplPSI5NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNlcmlmIiBmaWxsPSIjRjVFNkQzIj7in6Q8L3RleHQ+PC9zdmc+">
+
+<!-- Android Chrome -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#7B1F3E">
+
+<!-- Inline Web App Manifest -->
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%E8%8E%8A%E6%95%AC%E9%9F%B3%E6%A8%82%E7%A7%91%20%C2%B7%20%E7%90%B4%E6%88%BF%E9%A0%90%E7%B4%84%22%2C%22short_name%22%3A%22%E7%90%B4%E6%88%BF%E9%A0%90%E7%B4%84%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%237B1F3E%22%2C%22theme_color%22%3A%22%237B1F3E%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjM2IiBmaWxsPSIjN0IxRjNFIi8%2BPHRleHQgeD0iOTYiIHk9IjEyNCIgZm9udC1zaXplPSI5NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNlcmlmIiBmaWxsPSIjRjVFNkQzIj7in6Q8L3RleHQ%2BPC9zdmc%2B%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<!-- ══════════════ -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, remove, update, runTransaction }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+// ══════════════════════════════════════════════
+// ★ 請將下方設定替換為您自己的 Firebase 設定 ★
+// ══════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAJtkADc5o0773JNqhMDXuJl0qIaN8ET-w",
+  authDomain:        "jjvsmuis.firebaseapp.com",
+  databaseURL:       "https://jjvsmuis-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "jjvsmuis",
+  storageBucket:     "jjvsmuis.firebasestorage.app",
+  messagingSenderId: "309582390298",
+  appId:             "1:309582390298:web:42de97e5a1c3f39796dda3"
+};
+// ══════════════════════════════════════════════
+
+let app, db;
+let FB_READY = false;
+
+function initFirebase(){
+  try{
+    app = initializeApp(FIREBASE_CONFIG);
+    db  = getDatabase(app);
+    FB_READY = true;
+    window.__fbReady(db);
+  } catch(e){
+    console.error('[Firebase] 初始化失敗:', e);
+    window.__fbReady(null);
+  }
+}
+
+// Expose Firebase helpers to main script
+window.__fb = {
+  set:    (path,val)   => FB_READY ? set(ref(db,path),val)   : Promise.resolve(),
+  get:    (path)       => FB_READY ? get(ref(db,path)).then(s=>s.val()) : Promise.resolve(null),
+  remove: (path)       => FB_READY ? remove(ref(db,path))    : Promise.resolve(),
+  update: (path,val)   => FB_READY ? update(ref(db,path),val): Promise.resolve(),
+  listen: (path,cb)    => { if(!FB_READY){return ()=>{};} const r=ref(db,path); const unsub=onValue(r,s=>cb(s.val())); return unsub; },
+  // 原子性交易：path 為要操作的節點路徑，updateFn 回傳新值（回傳 undefined 表示中止）
+  transaction: (path, updateFn) => FB_READY ? runTransaction(ref(db,path), updateFn) : Promise.resolve({committed:false}),
+  ready:  ()           => FB_READY
+};
+
+initFirebase();
+</script>
+<style>
+:root{
+  --bg:#fbfaf7;
+  --bg2:#ffffff;
+  --bg3:#f4f1ea;
+  --bg4:#ebe7dd;
+  --bd:#d8d0c5;
+  --bd2:#c4bba6;
+  --gold:#d4af37;--gold2:#b8860b;--gold3:#996515;
+  --tx:#4a453f;
+  --tx2:#70685e;
+  --tx3:#948a7d;
+  --blue:#4a90e2;--blue2:#357abd;
+  --pur:#a569bd;--pur2:#8e44ad;
+  --red:#e74c3c;--red2:#c0392b;
+  --grn:#58d68d;--grn2:#27ae60;
+  --org2:#e67e22;
+  --sh:0 12px 32px rgba(100, 90, 80, 0.08);
+  --r:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+body{font-family:'Noto Serif TC','Noto Sans TC',sans-serif;font-weight:400;background:var(--bg);color:var(--tx);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,175,55,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,.08) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:500;background:rgba(251,250,247,.95);box-shadow:0 2px 15px rgba(0,0,0,0.03);backdrop-filter:blur(14px);border-bottom:1px solid var(--bd);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px}
+.nav-logo{display:flex;align-items:center;gap:10px;font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;color:var(--gold2)}
+.nav-logo .sub{font-size:.68rem;color:var(--tx3);font-weight:300;font-family:'Noto Sans TC',sans-serif}
+.nav-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ntab{background:transparent;border:1.5px solid var(--bd2);color:var(--tx2);padding:5px 16px;border-radius:20px;font-family:'Noto Sans TC',sans-serif;font-size:.74rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+.ntab:hover{border-color:var(--gold);color:var(--gold)}.ntab.active{background:var(--gold);color:#ffffff;border-color:var(--gold);font-weight:500}
+.admin-badge{background:rgba(217,64,64,.15);color:var(--red2);border:1px solid rgba(217,64,64,.35);padding:3px 12px;border-radius:20px;font-size:.66rem;display:none}
+.user-pill{background:var(--bg3);border:1px solid var(--bd2);border-radius:20px;padding:4px 14px;font-size:.73rem;color:var(--tx2);display:none;align-items:center;gap:8px}
+.role-tag{background:var(--gold);color:#ffffff;border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:600}
+.admin-tag{background:var(--red2);color:#fff;border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:600}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--grn2);display:inline-block;margin-right:4px}
+.sync-dot.off{background:var(--tx3)}
+
+/* ── LAYOUT ── */
+.page{display:none;position:relative;z-index:1}.page.active{display:block}
+.container{max-width:1600px;margin:0 auto;padding:20px 16px}
+
+/* ── FILTER BAR ── */
+.fbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:7px 12px;margin-bottom:10px;box-shadow:var(--sh);}
+.date-input{background:var(--bg4);border:1px solid var(--bd2);color:var(--tx);padding:4px 8px;border-radius:5px;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:.76rem}
+.date-input:focus{border-color:var(--gold)}
+.day-badge{font-family:"Noto Serif TC",serif;font-weight:600;color:var(--gold2);font-size:.82rem;min-width:36px}
+.legend{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px;font-size:.65rem;color:var(--tx3)}
+.ldot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* ── TABLE (含凍結窗格) ── */
+.table-outer{border-radius:12px;border:none;overflow:hidden;background:var(--bg2);box-shadow:var(--sh);}
+.table-scroll{overflow:auto; max-height:68vh;}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:600px}
+thead th{position:sticky;top:0;z-index:10;background:var(--bg3);color:var(--tx3);font-size:.64rem;font-weight:400;padding:6px 2px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.03);width:58px;min-width:58px;max-width:58px;white-space:nowrap;line-height:1.3}
+tbody td{border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);height:58px;padding:3px}
+tbody tr:last-child td{border-bottom:none}
+tbody td:last-child,thead th:last-child{border-right:none}
+.rl{background:var(--bg3);position:sticky;left:0;z-index:11;min-width:72px;width:72px;font-family:'Noto Serif TC',serif;font-weight:600;font-size:.74rem;color:var(--gold2);border-right:2px solid var(--gold)!important;text-align:center;padding:0 3px;vertical-align:middle;line-height:1.3}
+thead th.rl { z-index:12; }
+
+/* ── SLOT ── */
+.cell{position:relative;width:100%;height:100%;min-height:52px;display:flex;align-items:stretch}
+.slot{flex:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.65rem;font-weight:500;transition:all .15s;overflow:hidden;padding:4px;text-align:center;position:relative;cursor:pointer}
+.sf{background:rgba(40,160,96,.07);border:1px solid rgba(40,160,96,.18);color:var(--tx3)}.sf:hover{background:rgba(40,160,96,.2);border-color:var(--grn2);color:var(--grn2)}
+.sb{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;border:none}
+.st{background:linear-gradient(135deg,var(--pur),var(--pur2));color:#fff;border:none}
+.sx{background:rgba(212,175,55,.08);border:1.5px dashed rgba(212,175,55,.5);color:var(--gold2)}.sx:hover{background:rgba(212,175,55,.16)}
+.sk{background:repeating-linear-gradient(45deg,var(--bg3),var(--bg3) 8px,var(--bg4) 8px,var(--bg4) 16px);color:var(--tx2);border:1px solid var(--bd2)}
+/* reserved = fixed slot reserved for a named person, but can be booked day-before by others */
+.sr{background:rgba(212,175,55,.04);border:1.5px solid rgba(212,175,55,.3);color:var(--gold3)}
+.past{opacity:.4;pointer-events:none!important;cursor:default!important}
+.sn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%;line-height:1.3}
+.snote{font-size:.54rem;opacity:.8;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:95%}
+.fhint{position:absolute;bottom:2px;right:3px;font-size:.54rem;color:rgba(212,175,55,.5);pointer-events:none}
+
+/* ── ADMIN GRID ── */
+.agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
+.acard{background:var(--bg2);border:none;border-top: 4px solid var(--gold);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--sh);}
+.acard h3{font-family:'Noto Serif TC',serif;font-size:.88rem;color:var(--gold2);border-left:3px solid var(--gold);padding-left:10px;margin:0}
+.sdiv{height:1px;background:var(--bd);margin:2px 0}
+
+/* ── ROOM SORT ── */
+.rsl{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto}
+.rsi{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;padding:7px 10px;font-size:.78rem;color:var(--tx2)}
+.rsi.drag-over{border-color:var(--gold);background:rgba(212,175,55,.08)}
+.rsi.dragging{opacity:.4;border-style:dashed}
+.dh{color:var(--tx3);cursor:grab;user-select:none;flex-shrink:0;padding:0 2px}
+.dh:active{cursor:grabbing}
+.rn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ri{flex:1;background:var(--bg4);border:1px solid var(--gold);color:var(--tx);padding:3px 8px;border-radius:4px;font-size:.75rem;outline:none}
+.mvb{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.mvbtn{background:none;border:1px solid var(--bd2);color:var(--tx3);border-radius:3px;width:18px;height:14px;cursor:pointer;font-size:.6rem;line-height:1;padding:0;text-align:center}
+.mvbtn:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}.mvbtn:disabled{opacity:.3;cursor:default}
+
+/* ── CHECK GRID ── */
+.cbox{background:var(--bg4);border:1px solid var(--bd);border-radius:8px;padding:10px;max-height:156px;overflow-y:auto}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+.ci{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--tx2);cursor:pointer;padding:4px 6px;border-radius:4px}
+.ci:hover{background:rgba(212,175,55,.08)}.ci input{width:14px;height:14px;accent-color:var(--gold);flex-shrink:0}
+.ci.disabled{opacity:.3;pointer-events:none}
+
+/* ── SCROLL LIST ── */
+.slist{background:var(--bg4);border:1px solid var(--bd);border-radius:8px;max-height:280px;overflow-y:auto}
+.li{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bd);font-size:.75rem;color:var(--tx2)}
+.li:last-child{border-bottom:none}.li:hover{background:rgba(255,255,255,.3)}
+.lcb{background:rgba(217,64,64,.15);color:var(--red2);border:1px solid rgba(217,64,64,.28);border-radius:5px;padding:3px 9px;font-size:.68rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
+.lcb:hover{background:rgba(217,64,64,.28)}
+.mi{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bd);font-size:.75rem;color:var(--tx2)}
+.mi:last-child{border-bottom:none}.mi:hover{background:rgba(255,255,255,.3)}
+.mbadge{font-size:.63rem;padding:2px 8px;border-radius:10px;font-weight:500}
+.mba{background:rgba(217,64,64,.15);color:var(--red2)}.mbt{background:rgba(139,62,201,.15);color:var(--pur2)}.mbs{background:rgba(28,111,214,.15);color:var(--blue2)}
+
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:24px;padding:9px 20px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-size:.78rem;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.bg{background:var(--gold);color:#ffffff}.bg:hover{background:var(--gold2)}
+.bb{background:rgba(28,111,214,.15);color:var(--blue2);border:1px solid rgba(28,111,214,.32)}.bb:hover{background:rgba(28,111,214,.25)}
+.br{background:rgba(217,64,64,.15);color:var(--red2);border:1px solid rgba(217,64,64,.3)}.br:hover{background:rgba(217,64,64,.25)}
+.bgh{background:var(--bg4);color:var(--tx2);border:1px solid var(--bd2)}.bgh:hover{color:var(--tx);background:var(--bg3)}
+.bfull{width:100%}.bsm{padding:5px 12px;font-size:.7rem}
+
+/* ── FORMS ── */
+.fg{display:flex;flex-direction:column;gap:6px}
+.fl{font-size:.71rem;color:var(--tx2);letter-spacing:.02em}
+.fi,.fs,.fta{background:var(--bg2);border:1px solid var(--bd2);color:var(--tx);padding:9px 12px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:.82rem;outline:none;transition:border-color .2s;width:100%}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--gold);box-shadow: 0 0 0 3px rgba(212,175,55,0.1)}.fi::placeholder{color:var(--tx3)}.fs option{background:var(--bg2)}.fta{resize:vertical;min-height:66px}
+.mbt2{display:flex;gap:6px}
+.mbtbtn{background:transparent;border:1.5px solid var(--bd2);color:var(--tx3);padding:6px 16px;border-radius:20px;font-family:'Noto Sans TC',sans-serif;font-size:.75rem;cursor:pointer;transition:all .2s}
+.mbtbtn.active{background:var(--gold);color:#ffffff;border-color:var(--gold);font-weight:600}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(50,45,40,.6);z-index:900;backdrop-filter:blur(6px)}
+.modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--bd2);border-radius:14px;width:480px;max-width:96vw;max-height:92vh;overflow-y:auto;z-index:1000;box-shadow:var(--sh);animation:mIn .22s ease}
+@keyframes mIn{from{transform:translate(-50%,-56%);opacity:0}to{transform:translate(-50%,-50%);opacity:1}}
+.mh{padding:18px 20px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:2}
+.mt{font-family:'Noto Serif TC',serif;font-size:.95rem;color:var(--gold2);font-weight:600}
+.mc{background:none;border:none;color:var(--tx3);font-size:1.3rem;cursor:pointer;line-height:1;padding:2px 6px}.mc:hover{color:var(--tx)}
+.mb{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.mf{padding:12px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);z-index:2}
+.ib{background:var(--bg3);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:5px}
+.ir{display:flex;justify-content:space-between;font-size:.77rem}
+.ila{color:var(--tx3)}.ilv{color:var(--tx)}.ilv.ac{color:var(--gold2);font-weight:600}
+.ab{padding:10px 13px;border-radius:7px;font-size:.76rem}
+.aw{background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);color:var(--gold3)}
+.ae{background:rgba(217,64,64,.1);border:1px solid rgba(217,64,64,.3);color:var(--red2)}
+.fn{background:rgba(212,175,55,.07);border:1px solid rgba(212,175,55,.28);border-radius:8px;padding:10px 13px;font-size:.74rem;color:var(--gold3);display:flex;align-items:flex-start;gap:8px}
+.notif-item{background:var(--bg3);border-radius:7px;padding:10px 13px;margin-bottom:8px;font-size:.78rem}
+
+/* ── CONFIRM MODAL ── */
+#confirmModal .mb{align-items:center;text-align:center}
+#confirmModal .cm-msg{font-size:.9rem;color:var(--tx);line-height:1.6;padding:8px 0;font-weight:600;}
+#confirmModal .cm-sub{font-size:.76rem;color:var(--tx3);margin-top:4px}
+
+/* ── LOGIN ── */
+.lw{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.lb{width:380px;max-width:95vw;background:var(--bg2);border:1px solid var(--bd2);border-radius:16px;padding:42px 36px;box-shadow:var(--sh)}
+.pkeys{display:flex;justify-content:center;gap:2px;margin-bottom:22px}
+.wk{width:16px;height:48px;background:rgba(50,45,40,.05);border-radius:0 0 4px 4px;border:1px solid var(--bd2)}
+.bk{width:10px;height:30px;background:rgba(212,175,55,.3);border-radius:0 0 3px 3px;margin:0 -5px;z-index:1;position:relative}
+.llogo{text-align:center;margin-bottom:28px}
+.llogo h1{font-family:'Noto Serif TC',serif;font-size:1.45rem;color:var(--gold2);letter-spacing:.04em;margin-bottom:6px;font-weight:600;}
+.llogo p{font-size:.71rem;color:var(--tx3)}
+.ldiv{height:1px;background:var(--bd);margin:18px 0}
+.pn{background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.28);border-radius:8px;padding:12px;font-size:.76rem;color:var(--gold3)}
+/* firebase setup notice */
+.fbsetup{background:rgba(28,111,214,.08);border:1px solid rgba(28,111,214,.3);border-radius:8px;padding:12px;font-size:.75rem;color:var(--blue2);margin-bottom:14px;line-height:1.6}
+
+/* ── TOAST ── */
+.tw{position:fixed;bottom:22px;right:22px;z-index:2000;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.tt{background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;padding:11px 16px;font-size:.77rem;color:var(--tx);max-width:280px;animation:tIn .3s ease;transition:opacity .45s;pointer-events:all;box-shadow:var(--sh)}
+.tt.s{border-left:4px solid var(--grn2)}.tt.e{border-left:4px solid var(--red2)}.tt.i{border-left:4px solid var(--gold)}
+@keyframes tIn{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+.hidden{display:none!important}.flex{display:flex}.gap8{gap:8px}.gap6{gap:6px}.flex1{flex:1}
+.mt4{margin-top:4px}.mt8{margin-top:8px}.txs{font-size:.7rem}.txm{color:var(--tx3)}
+
+/* ── QUERY MODAL ── */
+.qri{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s;gap:10px}
+.qri:last-child{border-bottom:none}
+.qri:hover{background:rgba(212,175,55,.06)}
+.qri-left{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.qri-date{font-size:.8rem;font-weight:600;color:var(--tx)}
+.qri-dow{font-size:.75rem;font-weight:400;color:var(--tx3)}
+.qri-room{font-size:.76rem;color:var(--tx2)}
+.qri-note{font-size:.7rem;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qri-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.qbadge{font-size:.68rem;font-weight:600;padding:2px 10px;border-radius:10px}
+.qb-past{background:rgba(100,100,100,.12);color:var(--tx3);border:1px solid rgba(100,100,100,.2)}
+.qb-today{background:rgba(212,175,55,.14);color:var(--gold2);border:1px solid rgba(212,175,55,.35)}
+.qb-future{background:rgba(39,174,96,.12);color:var(--grn2);border:1px solid rgba(39,174,96,.3)}
+.qstat-row{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 2px;font-size:.74rem}
+.qstat-item{display:flex;align-items:center;gap:5px}
+.qstat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.qno-result{padding:28px 0;text-align:center;color:var(--tx3);font-size:.82rem}
+.query-tabs{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--bd);padding-bottom:0}
+.qtab{background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:6px 14px;font-size:.76rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;transition:all .15s}
+.qtab.active{color:var(--blue2);border-bottom-color:var(--blue2);font-weight:600}
+
+/* ── STUDENT FIXED SLOT (藍色虛線，區別於教師金色虛線) ── */
+.ss{background:rgba(74,144,226,.08);border:1.5px dashed rgba(74,144,226,.55);color:var(--blue2)}.ss:hover{background:rgba(74,144,226,.18)}
+
+/* ── NON-DESIGNEE BOOKED A FIXED SLOT → 紅色背景 ── */
+.sbo{background:linear-gradient(135deg,rgba(231,76,60,.82),rgba(192,57,43,.82));color:#fff;border:none}
+
+/* ── PAST-BUT-VIEWABLE (booked slots that are past → opacity only, still clickable) ── */
+.pv{opacity:.45;cursor:pointer}
+</style>
+</head>
+<body id="mainBody">
+
+<div class="overlay" id="loginOverlay"></div>
+<div class="modal" id="loginModal" style="width:400px">
+  <div class="mh">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="pkeys" style="margin:0;transform:scale(.7);transform-origin:left center"><div class="wk"></div><div class="bk"></div><div class="wk"></div><div class="wk"></div><div class="bk"></div><div class="wk"></div></div>
+      <div class="mt">莊敬音樂科 · 登入預約</div>
+    </div>
+    <button class="mc" id="loginModalClose">×</button>
+  </div>
+  <div class="mb">
+    <div id="fbNotice" class="fbsetup hidden">🔌 Firebase 尚未設定，目前使用本機離線模式。</div>
+    <div id="loginErr" class="ab ae hidden" style="margin-bottom:4px"></div>
+    <div class="fg"><label class="fl">姓名</label><input id="loginName" class="fi" placeholder="請輸入您的姓名" autocomplete="username"></div>
+    <div class="fg"><label class="fl">密碼</label><input id="loginPwd" class="fi" type="password" placeholder="請輸入密碼" autocomplete="current-password"></div>
+    <div class="ldiv" style="margin:10px 0"></div>
+    <p class="txs txm" style="text-align:center">新帳號預設密碼 000・登入後請修改密碼</p>
+  </div>
+  <div class="mf">
+    <button class="btn bgh bsm" id="loginModalClose2">取消</button>
+    <button class="btn bg" id="loginBtn">登入系統</button>
+  </div>
+</div>
+
+<div id="appWrap">
+  <nav>
+    <div class="nav-logo"><span>🎹</span><div><div>莊敬音樂科</div><div class="sub">琴房預約系統</div></div></div>
+    <div class="nav-right">
+      <span id="syncIndicator"><span class="sync-dot off" id="syncDot"></span><span id="syncLabel" class="txs txm">離線</span></span>
+      <div id="adminBadge" class="admin-badge">⚠ 管理模式</div>
+      <div id="userPill" class="user-pill flex"><span id="pillName"></span><span id="pillRole" class="role-tag"></span></div>
+      <button class="ntab active" id="navBoard">📅 預約看板</button>
+      <button class="ntab" id="navLoginBtn" style="background:rgba(212,175,55,.12);border-color:var(--gold);color:var(--gold2)">🔑 登入預約</button>
+      <button class="ntab hidden" id="navAdmin">⚙️ 管理後台</button>
+      <button class="ntab hidden" id="logoutBtn">登出</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div id="boardPage" class="page active">
+      <div id="rulesNotice" class="hidden" style="background:rgba(212,175,55,.06);border:1px solid rgba(212,175,55,.22);border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px">
+  
+        <span style="font-size:1rem;flex-shrink:0;margin-top:1px">📋</span>
+        <div>
+          <div style="font-size:.72rem;color:var(--gold);font-weight:600;margin-bottom:4px;font-family:'Noto Serif TC',serif">預約規則說明</div>
+          <div id="rulesText" style="font-size:.78rem;color:var(--red2);white-space:pre-wrap;line-height:1.7;font-weight:600;"></div>
+        </div>
+      </div>
+      <div class="fbar">
+        <span class="txs txm">日期</span>
+        <input type="date" id="viewDate" class="date-input">
+        <button class="btn bgh bsm" id="btnToday" style="padding:4px 10px;font-size:.72rem;white-space:nowrap">今日</button>
+        <span id="dayDisplay" class="day-badge"></span>
+
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn bg bsm" id="btnAM">☀ 上午</button>
+          <button class="btn bgh bsm" id="btnPM">🌆 下午</button>
+          <button class="btn bgh bsm" id="btnEV">🌙 放學後</button>
+        </div>
+        <span id="viewRangeLabel" class="txs txm" style="white-space:nowrap">08:00–13:00</span>
+
+        <!-- 查詢按鈕 -->
+        <button class="btn bgh bsm" id="btnQuery" style="padding:4px 12px;font-size:.72rem;white-space:nowrap;border-color:var(--blue);color:var(--blue2)">🔍 查詢預約</button>
+        <button class="btn bgh bsm" id="btnMyBookings" style="padding:4px 12px;font-size:.72rem;white-space:nowrap;border-color:var(--gold);color:var(--gold2);display:none">📋 我的預約</button>
+
+        <div class="legend">
+          <div class="leg"><div class="ldot" style="background:var(--blue2)"></div>學生預約</div>
+          <div class="leg"><div class="ldot" style="background:var(--pur2)"></div>教師預約</div>
+          <div class="leg"><div class="ldot" style="background:rgba(212,175,55,.4);border:1.5px dashed var(--gold)"></div>固定排課</div>
+          <div class="leg"><div class="ldot" style="background:#1a1d22;border:1px solid #444"></div>封鎖時段</div>
+        </div>
+      </div>
+      <div class="table-outer"><div class="table-scroll">
+        <table><thead><tr id="timeHeader"></tr></thead><tbody id="boardBody"></tbody></table>
+      </div></div>
+    </div>
+
+    <div id="adminPage" class="page">
+      <div class="agrid">
+        
+        <div class="acard">
+          <h3>📋 預約規則說明管理</h3>
+          <p class="txs txm" style="margin-bottom:6px">此說明將顯示於預約看板上方，供所有人閱覽。</p>
+          <div class="fg">
+            <label class="fl">規則說明內容</label>
+            <textarea id="adminRulesText" class="fta" rows="6" placeholder="例：&#10;1. 每位學生每天最多預約2個時段&#10;2. 預約需於前一日完成&#10;3. 請準時使用，逾時視為放棄"></textarea>
+          </div>
+          <button class="btn bg bsm bfull" id="saveRulesBtn">✓ 儲存並發布規則說明</button>
+        </div>
+        <div class="acard">
+          <h3>🎹 琴房資源管理</h3>
+          <div class="flex gap8"><input id="newRoomName" class="fi flex1" placeholder="輸入琴房名稱（如：101-A）"><button class="btn bb bsm" id="addRoomBtn">新增琴房</button></div>
+          <p class="txs txm" style="margin-top:-4px">☰ 拖曳排序・▲▼ 微調・✏ 改名・✕ 刪除</p>
+          <div id="roomSortList" class="rsl"></div>
+        </div>
+        <div class="acard">
+          <h3>📋 批量排課與封鎖</h3>
+          <div class="mbt2"><button id="modeFixed" class="mbtbtn active" data-mode="fixed">📌 每週固定排課</button><button id="modeLock" class="mbtbtn" data-mode="lock">🚫 封鎖時段</button></div>
+          <div class="fg">
+            <label class="fl" id="schedLabel">排課主題 / 對象</label>
+            <input id="setTeacher" class="fi" placeholder="例：王小明  或  王小明＋李美玲（多人用＋分隔）">
+            <div style="font-size:.67rem;color:var(--tx3);margin-top:3px">💡 指定多位學生皆可預約時，請用全形「＋」分隔，例：<b style="color:var(--gold2)">王小明＋李美玲</b></div>
+          </div>
+          <div class="fg"><label class="fl">備注（選填）</label><input id="setRemark" class="fi" placeholder="例：請勿移動樂器"></div>
+          <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用琴房</span><button class="btn bgh bsm" data-togall="adminRoom" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminRoomGrid" class="cgrid"></div></div></div>
+          <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用星期</span><button class="btn bgh bsm" data-togall="adminDay" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminDayGrid" class="cgrid"></div></div></div>
+          <div id="schedDateRange" class="hidden">
+            <div class="fl" style="margin-bottom:6px" id="schedDateRangeLabel">指定日期範圍（留空=永久每週套用）</div>
+            <div class="flex gap8"><div class="fg flex1"><label class="fl">起始日</label><input id="lockFrom" class="fi" type="date"></div><div class="fg flex1"><label class="fl">結束日</label><input id="lockTo" class="fi" type="date"></div></div>
+          </div>
+          <div><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用時段</span><button class="btn bgh bsm" data-togall="adminTime" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div><div class="cbox"><div id="adminTimeGrid" class="cgrid"></div></div></div>
+          <button class="btn bg bfull" id="saveSettingBtn">✓ 套用設定</button>
+        </div>
+        <div class="acard">
+          <h3>👥 成員管理</h3>
+         
+          <div>
+            <div class="fl" style="margin-bottom:8px">新增成員</div>
+            <div class="flex gap8" style="margin-bottom:6px">
+              <input id="newMemberName" class="fi flex1" placeholder="姓名">
+              <select id="newMemberType" class="fs" style="width:110px">
+                <option value="student">學生</option>
+                <option value="teacher">教師</option>
+                <option value="admin">管理員</option>
+              </select>
+            </div>
+            <div id="newMemberClassWrap" class="flex gap8" style="margin-bottom:8px">
+              <select id="newMemberClass" class="fs flex1">
+                <option value="未分班">未分班</option>
+              </select>
+            </div>
+            <button class="btn bb bsm bfull" id="addMemberBtn">新增成員</button>
+          </div>
+          <div class="sdiv"></div>
+          <div>
+            <div class="fl" style="margin-bottom:6px">批次匯入（每行一姓名）</div>
+            <textarea id="importList" class="fta" rows="3" placeholder="王小明&#10;李美玲&#10;張大衛"></textarea>
+    
+            <div class="flex gap8 mt8">
+              <select id="importType" class="fs" style="width:110px">
+                <option value="student">學生</option>
+                <option value="teacher">教師</option>
+                <option value="admin">管理員</option>
+              </select>
+       
+              <select id="importClass" class="fs flex1"><option value="未分班">未分班</option></select>
+              <button class="btn bb bsm" id="importBtn">批次匯入</button>
+            </div>
+          </div>
+          <div class="sdiv"></div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span class="fl">班級管理</span>
+            </div>
+            <div class="flex gap8" style="margin-bottom:6px">
+              <input id="newClassName" class="fi flex1" placeholder="輸入新班級名稱（如：112甲班）">
+              <button class="btn bb bsm" id="addClassBtn">新增班級</button>
+            </div>
+            <div id="classTagList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px"></div>
+          </div>
+          <div class="sdiv"></div>
+          <div class="fl" style="margin-bottom:6px">成員列表</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <details open style="background:var(--bg4);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+              <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--red2);font-weight:500;list-style:none;display:flex;align-items:center;gap:6px">▼ 管理員 <span id="adminCount" class="mbadge mba" style="font-size:.6rem"></span></summary>
+              <div class="slist" id="listAdmin" style="max-height:180px;border:none;border-radius:0;border-top:1px solid var(--bd)"></div>
+            </details>
+            <details open style="background:var(--bg4);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+              <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--pur2);font-weight:500;list-style:none;display:flex;align-items:center;gap:6px">▼ 教師 <span id="teacherCount" class="mbadge mbt" style="font-size:.6rem"></span></summary>
+              <div class="slist" id="listTeacher" style="max-height:180px;border:none;border-radius:0;border-top:1px solid var(--bd)"></div>
+            </details>
+            <div id="studentClassGroups"></div>
+          </div>
+        </div>
+        <div class="acard">
+          <h3>📊 預約記錄日誌</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <span class="txs txm" id="cleanupStatus"></span>
+            <div style="display:flex;gap:6px">
+              <button class="btn bgh bsm" id="clearLogsBtn" style="font-size:.68rem">🗑 清空所有日誌</button>
+              <button class="btn bgh bsm" id="manualCleanupBtn" style="font-size:.68rem">⚙ 立即清理過期資料</button>
+            </div>
+          </div>
+          <!-- Log Tabs -->
+          <div style="display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:8px">
+            <button class="log-tab-btn active" data-logtab="student" style="background:none;border:none;border-bottom:2px solid var(--blue2);color:var(--blue2);padding:5px 12px;font-size:.73rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-weight:600">🎓 學生預約</button>
+            <button class="log-tab-btn" data-logtab="teacher" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:5px 12px;font-size:.73rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif">👩‍🏫 教師預約</button>
+            <button class="log-tab-btn" data-logtab="fixed" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);padding:5px 12px;font-size:.73rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif">📌 固定/管理</button>
+          </div>
+          <div id="logPanel-student" class="log-panel"><div id="adminLogList-student" class="slist" style="max-height:300px"></div></div>
+          <div id="logPanel-teacher" class="log-panel" style="display:none"><div id="adminLogList-teacher" class="slist" style="max-height:300px"></div></div>
+          <div id="logPanel-fixed" class="log-panel" style="display:none"><div id="adminLogList-fixed" class="slist" style="max-height:300px"></div></div>
+          <!-- keep legacy id for compat -->
+          <div id="adminLogList" style="display:none"></div>
+        </div>
+        <div class="acard" style="grid-column:1/-1">
+          <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
+          <div class="ab aw" style="font-size:.73rem;line-height:1.7">
+            格式（逗號分隔）：<code style="color:var(--gold2)">類型,琴房,星期(一~五),開始HH:MM,結束HH:MM,說明,備注(可空),起始日(可空),結束日(可空)</code><br>
+            <span style="color:var(--tx2)">• <b>fixed</b> = 固定排課（可被預約）・<b>lock</b> = 封鎖時段（不可預約）<br>
+            • 日期留空 = 每週固定不限期（fixed 常用）。lock 建議填日期範圍。<br>
+            • 星期用：一/二/三/四/五。# 開頭為備注行。</span>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn bgh bsm" id="dlTemplateBtn">⬇ 下載模板</button>
+            <button class="btn br bsm" id="clearFixedBtn">🗑 清除所有固定排課</button>
+            <button class="btn br bsm" id="clearLockBtn">🗑 清除所有封鎖時段</button>
+          </div>
+          <textarea id="csvImportText" class="fta" rows="7" style="font-family:monospace;font-size:.73rem"
+            placeholder="fixed,101-A,一,08:00,09:00,王老師,鋼琴,2025-09-01,2026-01-17&#10;fixed,102-B,三,10:00,11:30,李老師,,&#10;lock,演奏廳,五,12:00,14:00,清潔維護,,2025-10-01,2026-01-17"></textarea>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn bg" id="importCsvBtn">📥 匯入課表/封鎖</button>
+            <span id="csvResult" class="txs txm"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="modal" id="confirmModal">
+  <div class="mh"><div class="mt">⚠ 請確認</div></div>
+  <div class="mb">
+    <div class="cm-msg" id="confirmMsg"></div>
+    <div class="cm-sub" id="confirmSub"></div>
+  </div>
+  <div class="mf">
+    <button class="btn bgh bsm" id="confirmNo">取消</button>
+    <button class="btn br" id="confirmYes">確定</button>
+  </div>
+</div>
+
+<div class="modal" id="bookModal">
+  <div class="mh"><div class="mt">申請預約</div><button class="mc" data-close>×</button></div>
+  <div class="mb">
+    <div id="fixedNotice" class="fn hidden"><span>📌</span><div><strong>此時段有固定排課：</strong><span id="fnText"></span><br><span style="color:var(--tx2);font-size:.72rem">仍開放預約。</span></div></div>
+    <div id="reservedNotice" class="ab aw hidden">⏳ 此時段為固定排課時段，<strong>需等到前一日</strong>才開放預約。</div>
+    <div class="ib" id="bookInfo"></div>
+    <div class="fg"><label class="fl">備注類型</label><select id="bookNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="共練">自主練習與他人共練</option><option value="特別時段">教師同意特別時段練習</option><option value="other">其他</option></select></div>
+    <div id="lessonWrap" class="hidden flex gap8"><div class="fg flex1"><label class="fl">授課老師</label><input id="lessonTeacher" class="fi" placeholder="例：王老師"></div><div class="fg flex1"><label class="fl">課程樂器</label><input id="lessonInstrument" class="fi" placeholder="例：鋼琴"></div></div>
+    <div id="bookCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="bookCoName" class="fi" placeholder="請輸入共練者姓名"></div>
+    <div id="bookSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="bookSpecialTeacher" class="fi" placeholder="輸入姓名（系統自動加「教師」）"></div>
+    <div id="noteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="bookNoteOther" class="fi" placeholder="請輸入備注"></div>
+    <div><div class="fl" style="margin-bottom:6px">選擇時段 <span class="txm txs">（可複選）</span></div><div class="cbox"><div id="bookTimeGrid" class="cgrid"></div></div></div>
+    <div id="bookErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf"><button class="btn bgh bsm" data-close>取消</button><button class="btn bg" id="confirmBookBtn">確認預約</button></div>
+</div>
+
+<div class="modal" id="deleteModal">
+  <div class="mh"><div class="mt" style="color:var(--red2)">取消預約</div><button class="mc" data-close>×</button></div>
+  <div class="mb">
+    <div class="ib" id="deleteInfo"></div>
+    <div id="selfDelWrap"><p class="txs txm" style="margin-top:2px">請輸入密碼確認：</p><div class="fg mt8"><label class="fl">您的密碼</label><input id="delPwd" class="fi" type="password" placeholder="請輸入密碼"></div></div>
+    <div id="adminDelWrap" class="hidden"><div class="ab aw" style="margin-bottom:10px">⚠ 系統將通知預約者。</div><div class="fg"><label class="fl">取消原因 <span style="color:var(--red2)">*</span></label><input id="adminDelReason" class="fi" placeholder="請填寫原因（將通知預約者）"></div></div>
+    <div id="delErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf"><button class="btn bgh bsm" data-close>返回</button><button class="btn br" id="confirmDelBtn">確認取消預約</button></div>
+</div>
+
+<div class="modal" id="adminDelSetModal">
+  <div class="mh"><div class="mt" style="color:var(--red2)">刪除排課/封鎖設定</div><button class="mc" data-close>×</button></div>
+  <div class="mb">
+    <div class="ib" id="adminDelSetInfo"></div>
+    <div class="fg"><label class="fl">備注說明（選填）</label><input id="adminDelSetNote" class="fi" placeholder="例：課程調整、設備維護"></div>
+  </div>
+  <div class="mf"><button class="btn bgh bsm" data-close>取消</button><button class="btn br" id="confirmAdminDelSetBtn">確認刪除</button></div>
+</div>
+
+<div class="modal" id="editBookModal">
+  <div class="mh"><div class="mt" style="color:var(--blue2)">✏ 修改預約</div><button class="mc" data-close>×</button></div>
+  <div class="mb">
+    <div class="ib" id="editBookInfo"></div>
+    <div class="fg"><label class="fl">備注類型</label><select id="editNoteSelect" class="fs"><option value="自主練習">自主練習</option><option value="主副修課">主副修課</option><option value="配伴奏">配伴奏</option><option value="共練">自主練習與他人共練</option><option value="特別時段">教師同意特別時段練習</option><option value="other">其他</option></select></div>
+    <div id="editLessonWrap" class="hidden flex gap8"><div class="fg flex1"><label class="fl">授課老師</label><input id="editLessonTeacher" class="fi" placeholder="例：王老師"></div><div class="fg flex1"><label class="fl">課程樂器</label><input id="editLessonInstrument" class="fi" placeholder="例：鋼琴"></div></div>
+    <div id="editCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="editCoName" class="fi" placeholder="請輸入共練者姓名"></div>
+    <div id="editSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="editSpecialTeacher" class="fi" placeholder="輸入姓名（系統自動加「教師」）"></div>
+    <div id="editNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="editNoteOther" class="fi" placeholder="請輸入備注"></div>
+    <div id="editErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf"><button class="btn bgh bsm" data-close>取消</button><button class="btn bb" id="confirmEditBookBtn">✓ 確認修改</button></div>
+</div>
+
+<div class="modal" id="notifModal">
+  <div class="mh"><div class="mt" style="color:var(--red2)">📢 預約異動通知</div></div>
+  <div class="mb"><p class="txs txm" style="margin-bottom:12px">您有以下預約已被管理員取消：</p><div id="notifList"></div></div>
+  <div class="mf"><button class="btn bg" id="dismissNotifBtn">我知道了</button></div>
+</div>
+
+<div class="modal" id="changePwdModal">
+  <div class="mh"><div class="mt">修改密碼</div><button class="mc" id="cpClose" data-close>×</button></div>
+  <div class="mb">
+    <div id="cpNotice" class="pn hidden">⚠ 您的密碼為初始密碼 (000)，請立即修改。</div>
+    <div class="fg"><label class="fl">新密碼</label><input id="cp1" class="fi" type="password" placeholder="請輸入新密碼"></div>
+    <div class="fg"><label class="fl">確認新密碼</label><input id="cp2" class="fi" type="password" placeholder="再次輸入新密碼"></div>
+    <div id="cpErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf"><button id="cpSkip" class="btn bgh bsm" data-close>稍後再說</button><button class="btn bg" id="confirmCpBtn">確認修改</button></div>
+</div>
+
+
+<div class="modal" id="adminWriteModal" style="width:480px">
+  <div class="mh">
+    <div class="mt" style="color:var(--gold2)">👤 管理員代填預約</div>
+    <button class="mc" data-close>×</button>
+  </div>
+  <div class="mb">
+    <div class="ib" id="adminWriteInfo"></div>
+    <div class="fg"><label class="fl">預約人姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteName" class="fi" placeholder="請輸入預約人姓名（不限系統成員）" autocomplete="off"></div>
+    <div class="fg"><label class="fl">備注類型</label>
+      <select id="adminWriteNoteSelect" class="fs">
+        <option value="自主練習">自主練習</option>
+        <option value="主副修課">主副修課</option>
+        <option value="配伴奏">配伴奏</option>
+        <option value="共練">自主練習與他人共練</option>
+        <option value="特別時段">教師同意特別時段練習</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div id="adminWriteLessonWrap" class="hidden flex gap8">
+      <div class="fg flex1"><label class="fl">授課老師</label><input id="adminWriteLessonTeacher" class="fi" placeholder="例：王老師"></div>
+      <div class="fg flex1"><label class="fl">課程樂器</label><input id="adminWriteLessonInstrument" class="fi" placeholder="例：鋼琴"></div>
+    </div>
+    <div id="adminWriteCoWrap" class="hidden fg"><label class="fl">共練他人姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteCoName" class="fi" placeholder="請輸入共練者姓名"></div>
+    <div id="adminWriteSpecialWrap" class="hidden fg"><label class="fl">教師姓名 <span style="color:var(--red2)">*</span></label><input id="adminWriteSpecialTeacher" class="fi" placeholder="輸入姓名（系統自動加「教師」）"></div>
+    <div id="adminWriteNoteOtherWrap" class="hidden fg"><label class="fl">備注內容</label><input id="adminWriteNoteOther" class="fi" placeholder="請輸入備注"></div>
+    <div id="adminWriteErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf">
+    <button class="btn bgh bsm" data-close>取消</button>
+    <button class="btn bg" id="confirmAdminWriteBtn">✓ 確認填寫</button>
+  </div>
+</div>
+
+<div class="modal" id="editFixedModal" style="width:480px">
+  <div class="mh">
+    <div class="mt" style="color:var(--gold2)">✏️ 修改固定排課</div>
+    <button class="mc" data-close>×</button>
+  </div>
+  <div class="mb">
+    <div class="ib" id="editFixedInfo"></div>
+    <div class="fg">
+      <label class="fl">排課主題 / 預約人 <span style="color:var(--red2)">*</span></label>
+      <input id="editFixedTeacher" class="fi" placeholder="例：王小明  或  王小明＋李美玲">
+      <div style="font-size:.67rem;color:var(--tx3);margin-top:3px">💡 多位學生皆可預約時用全形「＋」分隔，例：<b style="color:var(--gold2)">王小明＋李美玲</b></div>
+    </div>
+    <div class="fg"><label class="fl">備注（選填）</label><input id="editFixedRemark" class="fi" placeholder="例：請勿移動樂器"></div>
+    <div id="editFixedErr" class="ab ae hidden"></div>
+  </div>
+  <div class="mf">
+    <button class="btn bgh bsm" data-close>取消</button>
+    <button class="btn bg" id="confirmEditFixedBtn">✓ 確認修改</button>
+  </div>
+</div>
+
+<!-- ═══ 查詢預約 Modal ═══ -->
+<div class="modal" id="queryModal" style="width:580px">
+  <div class="mh">
+    <div class="mt" style="color:var(--blue2)">🔍 查詢預約狀況</div>
+    <button class="mc" data-close>×</button>
+  </div>
+  <div class="mb" style="gap:12px">
+
+    <!-- 搜尋列 -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="fg flex1" style="min-width:130px">
+        <label class="fl">預約人姓名</label>
+        <input id="queryName" class="fi" placeholder="輸入姓名…" list="queryNameList" autocomplete="off">
+        <datalist id="queryNameList"></datalist>
+      </div>
+      <div class="fg" style="width:130px">
+        <label class="fl">起始日期</label>
+        <input id="queryFrom" type="date" class="fi" style="font-size:.78rem;padding:7px 8px">
+      </div>
+      <div class="fg" style="width:130px">
+        <label class="fl">結束日期</label>
+        <input id="queryTo" type="date" class="fi" style="font-size:.78rem;padding:7px 8px">
+      </div>
+      <button class="btn bg bsm" id="doQueryBtn" style="white-space:nowrap;padding:9px 16px">🔍 查詢</button>
+    </div>
+
+    <!-- 統計摘要 -->
+    <div id="queryStatRow" class="qstat-row hidden"></div>
+
+    <!-- 分頁 Tab -->
+    <div id="queryTabBar" class="query-tabs hidden">
+      <button class="qtab active" data-qtab="all">全部</button>
+      <button class="qtab" data-qtab="future">未來／今日</button>
+      <button class="qtab" data-qtab="past">已過去</button>
+    </div>
+
+    <!-- 結果列表 -->
+    <div id="queryResultList" style="border:1px solid var(--bd);border-radius:8px;background:var(--bg4);min-height:60px;overflow-y:auto;max-height:400px">
+      <div class="qno-result">請輸入姓名後點擊查詢</div>
+    </div>
+  </div>
+  <div class="mf">
+    <span id="queryTotalLabel" class="txs txm flex1" style="text-align:left"></span>
+    <button class="btn bgh bsm" data-close>關閉</button>
+  </div>
+</div>
+
+<!-- ═══ 預約資訊查看 Modal（Feature 4）═══ -->
+<div class="modal" id="viewInfoModal" style="width:420px">
+  <div class="mh"><div class="mt" style="color:var(--tx2)">📋 預約資訊</div><button class="mc" data-close>×</button></div>
+  <div class="mb">
+    <div id="viewInfoFixedNotice" class="fn hidden" style="margin-bottom:0">
+      <span>📌</span>
+      <div><strong>原固定使用者：</strong><span id="viewInfoFixed"></span><br><span id="viewInfoSbo" class="hidden" style="color:var(--red2);font-size:.73rem;font-weight:600">⚠ 因原固定使用者未預約，開放他人前一日預約</span></div>
+    </div>
+    <div class="ib" id="viewInfoContent"></div>
+  </div>
+  <div class="mf" id="viewInfoFooter">
+    <button class="btn bgh bsm" data-close>關閉</button>
+    <button class="btn br bsm hidden" id="viewInfoCancelBtn">取消此預約</button>
+    <button class="btn bb bsm hidden" id="viewInfoEditBtn">✏ 修改備注</button>
+  </div>
+</div>
+
+<div class="tw" id="toastWrap"></div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════
+// WAIT FOR FIREBASE MODULE
+// ═══════════════════════════════════
+let FB = null;
+let fbMode = false;
+// true = firebase, false = localStorage
+
+window.__fbReady = function(db){
+  FB = window.__fb;
+  fbMode = FB && FB.ready();
+  if(!fbMode){
+    document.getElementById('fbNotice').classList.remove('hidden');
+    setSyncUI(false);
+  } else {
+    setSyncUI(true);
+  }
+  // Now boot the app
+  appBoot();
+};
+
+function setSyncUI(online){
+  const dot=document.getElementById('syncDot');
+  const lbl=document.getElementById('syncLabel');
+  dot.className='sync-dot'+(online?'':' off');
+  lbl.textContent=online?'即時同步':'離線模式';
+}
+
+// ═══════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════
+const ADMIN_KEY  = '820588';
+const ADMIN_NAME = '王國霖';
+const DAYS = ['日','一','二','三','四','五','六'];
+const DOW_MAP = {'日':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6};
+const TIME_SLOTS = [];
+for(let h=8;h<=21;h++){ TIME_SLOTS.push(p2(h)+':00'); TIME_SLOTS.push(p2(h)+':30'); }
+function p2(n){ return String(n).padStart(2,'0'); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function dateStr(d){ return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function yesterdayOf(ds){ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()-1); return dateStr(d); }
+
+// ═══════════════════════════════════
+// DATA — unified read/write layer
+// ═══════════════════════════════════
+const DEFAULT_ROOMS=['101單間','101A','101B','101C','101D','101E','102單間','102A','102B','102C','102D','102E','104單間','104A','104B','104C','104D','105擊樂教室','B1樂團教室','B1排練教室','209展演廳','210A錄音室','210B混音室','211A','211B','211C','212A','212B','212C'];
+
+function ls(k,def=null){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):def;}catch{return def;} }
+function lss(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ console.warn('[localStorage] 寫入失敗（可能為私密瀏覽模式）:',e); } }
+function lsd(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+let rooms   = ls('jj_rooms') || DEFAULT_ROOMS;
+let users   = ls('jj_users') || {};
+let classes = ls('jj_classes') || ['未分班'];  // student class groups
+let sysData = ls('jj_data')  || {};
+let logs    = ls('jj_logs')  || [];
+let notifs  = ls('jj_notifs')|| {};
+
+// Ensure admin
+if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
+// Save helpers (localStorage + firebase)
 async function saveRooms(){ lss('jj_rooms',rooms); if(fbMode) await FB.set('rooms',rooms); }
 async function saveUsers(){ lss('jj_users',users); if(fbMode) await FB.set('users',users); }
 async function saveClasses(){ lss('jj_classes',classes); if(fbMode) await FB.set('classes',classes); }
 async function saveData(){  lss('jj_data',sysData); if(window.__markLocalSave) window.__markLocalSave(); if(fbMode) await FB.set('sysData',sysData); }
-async function saveData(dateKey){
-  lss('jj_data',sysData);
-  if(window.__markLocalSave) window.__markLocalSave();
-  if(fbMode){
-    if(dateKey && !/^\s*$/.test(dateKey)){
-      // ★ 最佳化：只寫入有異動的那一天，不寫整個 sysData
-      const val = sysData[dateKey] || null;
-      await FB.set(`sysData/${dateKey}`, val);
-    } else {
-      // 沒有指定 dateKey（例如批次匯入固定排課）才整批寫入
-      await FB.set('sysData', sysData);
-    }
-  }
-}
 async function saveLogs(){  lss('jj_logs',logs); if(fbMode) await FB.set('logs',logs.slice(0,200)); }
 async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('notifs',notifs); }
 // ═══════════════════════════════════
-@@ -776,8 +789,8 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
+// AUTO CLEANUP (滾動式清理)
+// ═══════════════════════════════════
+// 清理設定
 const CLEANUP_KEEP_LOGS     = 150;
 // 保留最新 N 筆日誌
 const CLEANUP_KEEP_DAYS_LOG = 60;    // 保留 60 天內的日誌
 const CLEANUP_KEEP_DAYS_DATA= 30;
 // 清除超過 30 天前的已過期預約資料（保留固定排課 dow keys）
-const CLEANUP_KEEP_DAYS_DATA= 14;
-// 清除超過 14 天前的已過期預約資料（保留固定排課 dow keys）
 const CLEANUP_INTERVAL_MS   = 6*60*60*1000; // 每 6 小時執行一次清理
 
 let lastCleanup = ls('jj_lastCleanup') || 0;
-@@ -822,7 +835,7 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-const logsCleaned=beforeCount-logs.length;
+function runRollingCleanup(force=false){
+  const now=Date.now();
+  if(!force && now-lastCleanup < CLEANUP_INTERVAL_MS) return; // not yet due
+  let cleaned=0;
+// 1. 清理 sysData：移除超過 CLEANUP_KEEP_DAYS_DATA 天前的日期 key 下的 book/lock 資料
+  //    (0~6 = 固定排課 dow keys，永遠保留)
+  const cutoffDate=new Date();
+  cutoffDate.setDate(cutoffDate.getDate()-CLEANUP_KEEP_DAYS_DATA);
+  const cutoffStr=dateStr(cutoffDate);
+  Object.keys(sysData).forEach(k=>{
+    // skip dow keys (single digit 0-6)
+    if(/^\d$/.test(k)) return;
+    if(k < cutoffStr){
+      // Keep only fixed type entries; remove book/lock
+      const dateData=sysData[k];
+      let hasFixed=false;
+      Object.keys(dateData||{}).forEach(room=>{
+        Object.keys(dateData[room]||{}).forEach(time=>{
+          if(dateData[room][time]?.type==='fixed'){
+            hasFixed=true;
+          } else {
+            delete dateData[room][time];
+            cleaned++;
+          }
+        });
+        // Remove empty room object
+        if(Object.keys(dateData[room]||{}).length===0) delete dateData[room];
+      });
+      // Remove empty date key if no fixed data
+      if(!hasFixed || Object.keys(sysData[k]||{}).length===0) delete sysData[k];
+    }
+  });
 
-if(cleaned>0||logsCleaned>0){
+  // 2. 清理 logs：保留最新 CLEANUP_KEEP_LOGS 筆 且 60 天內的記錄
+  const logCutoff=new Date(); logCutoff.setDate(logCutoff.getDate()-CLEANUP_KEEP_DAYS_LOG);
+  const logCutoffStr=logCutoff.toLocaleDateString('zh-TW');
+  const beforeCount=logs.length;
+  logs=logs.filter(l=>{ if(!l||!l.t) return false; return true; }).slice(0,CLEANUP_KEEP_LOGS);
+  const logsCleaned=beforeCount-logs.length;
+
+  if(cleaned>0||logsCleaned>0){
     saveData(); saveLogs();
-    saveData(null); saveLogs();
-console.log(`[AutoCleanup] 清理完成：${cleaned} 筆預約資料，${logsCleaned} 筆日誌`);
+    console.log(`[AutoCleanup] 清理完成：${cleaned} 筆預約資料，${logsCleaned} 筆日誌`);
+  }
+
+  lastCleanup=now;
+  lss('jj_lastCleanup',now);
 }
 
-@@ -839,19 +852,61 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
+// Schedule periodic cleanup
+function scheduleCleanup(){
+  runRollingCleanup(); // run on boot
+  setInterval(()=>runRollingCleanup(), CLEANUP_INTERVAL_MS);
+}
+
 function addLog(e){ if(!e.t) e.t=new Date().toLocaleString("zh-TW"); if(e.booker&&users[e.booker]&&!e.bookerType) e.bookerType=users[e.booker].type||"student"; logs.unshift(e); if(logs.length>500) logs.pop(); saveLogs(); }
 
 // Load from Firebase on boot
-// ★ 最佳化：sysData 改為「按日期分批拉取」，啟動時只拉今日前後共 5 天 + 固定排課（dow keys 0-6）
-// 避免一次性下載整個 sysData 造成大量流量
 async function loadFromFirebase(){
-if(!fbMode) return;
-const r=await FB.get('rooms');
-if(r) { rooms=r; lss('jj_rooms',rooms); }
-const u=await FB.get('users');   if(u) { users=u; lss('jj_users',users); }
-const cl=await FB.get('classes');if(cl&&Array.isArray(cl)){ classes=cl; lss('jj_classes',classes); }
-  const s=await FB.get('sysData'); if(s) { sysData=s; lss('jj_data',sysData); }
-
-  // ── 分批拉取 sysData：只拉「固定排課 dow keys」 + 「今日前後 3 天」──
-  const today=todayStr();
-  const datesToFetch=[];
-  for(let i=-1;i<=3;i++){
-    const d=new Date(today+'T00:00:00'); d.setDate(d.getDate()+i);
-    datesToFetch.push(dateStr(d));
-  }
-  // 先從 localStorage 還原，再用 Firebase 覆蓋最新值（離線也能顯示）
-  sysData = ls('jj_data') || {};
-  // 拉固定排課（dow 0-6）
-  for(let dow=0;dow<=6;dow++){
-    const v=await FB.get(`sysData/${dow}`);
-    if(v) sysData[String(dow)]=v;
-    else delete sysData[String(dow)];
-  }
-  // 拉近期日期資料
-  for(const dk of datesToFetch){
-    const v=await FB.get(`sysData/${dk}`);
-    if(v) sysData[dk]=v;
-    else delete sysData[dk];
-  }
-  lss('jj_data',sysData);
-
-const l=await FB.get('logs');    if(l) { logs=Array.isArray(l)?l:Object.values(l); lss('jj_logs',logs); }
-const n=await FB.get('notifs');  if(n) { notifs=n; lss('jj_notifs',notifs); }
-const ru=await FB.get('rules');  if(ru!=null) { lss('jj_rules',ru); }
-if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
-}
-
-// ── 按需拉取指定日期的 sysData（切換日期時呼叫，避免拉整個節點）──
-async function fetchDateData(dateKey){
   if(!fbMode) return;
-  // dow key（0-6）已在啟動時拉過，不重複
-  if(/^\d$/.test(dateKey)) return;
-  const now=Date.now();
-  if(!force_fetch_dates) window.force_fetch_dates={};
-  const last=window.force_fetch_dates[dateKey]||0;
-  if(now-last < SYSDATA_POLL_MS) return; // 45 秒內不重複拉
-  window.force_fetch_dates[dateKey]=now;
-  const v=await FB.get(`sysData/${dateKey}`);
-  if(v){ sysData[dateKey]=v; }
-  else { delete sysData[dateKey]; }
-  lss('jj_data',sysData);
-  _lastSysDataFetch=now;
+  const r=await FB.get('rooms');
+  if(r) { rooms=r; lss('jj_rooms',rooms); }
+  const u=await FB.get('users');   if(u) { users=u; lss('jj_users',users); }
+  const cl=await FB.get('classes');if(cl&&Array.isArray(cl)){ classes=cl; lss('jj_classes',classes); }
+  const s=await FB.get('sysData'); if(s) { sysData=s; lss('jj_data',sysData); }
+  const l=await FB.get('logs');    if(l) { logs=Array.isArray(l)?l:Object.values(l); lss('jj_logs',logs); }
+  const n=await FB.get('notifs');  if(n) { notifs=n; lss('jj_notifs',notifs); }
+  const ru=await FB.get('rules');  if(ru!=null) { lss('jj_rules',ru); }
+  if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
 }
 
 // ═══════════════════════════════════
 // STATE
 // ═══════════════════════════════════
-@@ -1048,13 +1103,20 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-const SYSDATA_POLL_MS = 45000; // 45 秒輪詢一次
+let curUser='', isAdmin=false, forcePwdChange=false;
+let boardView='am', curMode='fixed';
+let pending={};
+let dragSrcIdx=null;
+let confirmCallback=null;
+let fbListeners=[];
 
-// 主動從 Firebase 拉取 sysData（節流：SYSDATA_POLL_MS 內不重複拉取）
-// ★ 最佳化：只拉當前看板日期，不拉整個 sysData 節點
-async function fetchSysDataIfStale(force=false){
-if(!fbMode) return;
-const now = Date.now();
-if(!force && now - _lastSysDataFetch < SYSDATA_POLL_MS) return;
-_lastSysDataFetch = now;
-  const s = await FB.get('sysData');
-  if(s){ sysData=s; lss('jj_data',s); }
-  const ds = G('viewDate')?.value || todayStr();
-  // 拉當天日期資料
-  if(!/^\d$/.test(ds)){
-    const v = await FB.get(`sysData/${ds}`);
-    if(v){ sysData[ds]=v; }
-    else { delete sysData[ds]; }
-    lss('jj_data',sysData);
-  }
+// ═══════════════════════════════════
+// UTILS
+// ═══════════════════════════════════
+const G=id=>document.getElementById(id);
+const QA=s=>[...document.querySelectorAll(s)];
+function show(id){ const e=G(id); if(e) e.classList.remove('hidden'); }
+function hide(id){ const e=G(id); if(e) e.classList.add('hidden'); }
+function toggle(id,c){ c?show(id):hide(id); }
+function V(id){ const e=G(id); return e?e.value.trim():''; }
+function maxDateStr(){
+  // 管理員/教師：可預約未來 14 天；學生：2 天；未登入：可查看 7 天（唯讀）
+  let a;
+  if(!curUser) a=7;
+  else if(users[curUser]?.type==='teacher'||isAdmin) a=14;
+  else a=2;
+  const d=new Date(); d.setDate(d.getDate()+a); return dateStr(d);
+}
+function getVis(){
+  if(boardView==='am') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return h>=8&&(h<13); });
+  if(boardView==='pm') return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h>=13)&&(h<17||(h===17&&m===0)); });
+  return TIME_SLOTS.filter(t=>{ const [h,m]=t.split(':').map(Number); return (h===17&&m>=30)||h===18||h===19||h===20||(h===21&&m===0); });
+}
+function genSlots(s,e){ const r=[];
+  const [sh,sm]=s.split(':').map(Number); const [eh,em]=e.split(':').map(Number); if(isNaN(sh)||isNaN(eh)) return r; let c=sh*60+sm; const stop=eh*60+em; while(c<stop){ const ts=`${p2(Math.floor(c/60))}:${p2(c%60)}`; if(TIME_SLOTS.includes(ts)) r.push(ts); c+=30; } return r;
 }
 
-function startListeners(){
-@@ -1222,7 +1284,7 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-if(nv===old){ hide(`ri${i}`); show(`rn${i}`); hide(`rsb${i}`); show(`reb${i}`); return; }
-if(rooms.includes(nv)){ toast('名稱已存在','e'); return; }
-Object.keys(sysData).forEach(k=>{ if(sysData[k]?.[old]){ sysData[k][nv]=sysData[k][old]; delete sysData[k][old]; } });
-  rooms[i]=nv; saveRooms(); saveData(); refreshRoomGrid(); renderRoomSortList(); updateBoard(); toast(`已更名：${old} → ${nv}`,'s');
-  rooms[i]=nv; saveRooms(); saveData(null); refreshRoomGrid(); renderRoomSortList(); updateBoard(); toast(`已更名：${old} → ${nv}`,'s');
+function toast(msg,type='i'){
+  const c=G('toastWrap'); const t=document.createElement('div');
+  t.className=`tt ${type}`; t.textContent=msg; c.appendChild(t);
+  setTimeout(()=>t.style.opacity='0',2600); setTimeout(()=>{ if(t.parentNode) t.remove(); },3100);
 }
 
 // ═══════════════════════════════════
-@@ -1287,11 +1349,17 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
+// CUSTOM CONFIRM MODAL
+// ═══════════════════════════════════
+function showConfirm(msg, sub='', yesCb){
+  G('confirmMsg').textContent=msg;
+  G('confirmSub').textContent=sub||'';
+  confirmCallback=yesCb;
+  openModal('confirmModal');
+}
+G('confirmYes').addEventListener('click',()=>{ closeModal('confirmModal'); if(confirmCallback) confirmCallback(); confirmCallback=null; });
+G('confirmNo').addEventListener('click',()=>{ closeModal('confirmModal'); confirmCallback=null; });
+
+// ═══════════════════════════════════
+// MODALS
+// ═══════════════════════════════════
+function openModal(id){ G('overlay').style.display='block'; const el=G(id); if(el){el.style.display='block'; el.scrollTop=0;} }
+function closeModal(id){ const el=G(id); if(el) el.style.display='none'; }
+function closeModals(){
+  if(forcePwdChange) return;
+  G('overlay').style.display='none';
+  ['confirmModal','bookModal','deleteModal','adminDelSetModal','notifModal','changePwdModal','editBookModal','adminWriteModal','editFixedModal','queryModal','viewInfoModal'].forEach(id=>closeModal(id));
+}
+function showMErr(id,msg){ const e=G(id); e.textContent=msg; e.classList.remove('hidden'); }
+
+G('overlay').addEventListener('click',e=>{ if(e.target===G('overlay')) closeModals(); });
+document.addEventListener('click',ev=>{
+  if(ev.target.hasAttribute('data-close')) closeModals();
+  // toggle-all
+  const ta=ev.target.closest('[data-togall]');
+  if(ta){ const n=ta.dataset.togall; const inp=QA(`input[name="${n}"]`); const all=inp.every(i=>i.checked); inp.forEach(i=>i.checked=!all); }
+  // mode buttons
+  const mb=ev.target.closest('[data-mode]');
+  if(mb) setMode(mb.dataset.mode);
+
+  // edit class tag
+  const ec=ev.target.closest('[data-eclass]');
+  if(ec){
+    const oldCls=ec.dataset.eclass;
+    const newCls=prompt('請輸入「' + oldCls + '」的新名稱：', oldCls);
+    
+    if(newCls && newCls.trim() && newCls.trim() !== oldCls){
+       const trimmed = newCls.trim();
+       if(classes.includes(trimmed)){
+           toast('班級名稱已存在','e');
+           return;
+       }
+       
+       const idx = classes.indexOf(oldCls);
+       if(idx > -1) classes[idx] = trimmed;
+       
+       Object.keys(users).forEach(u => {
+           if((users[u].class || '未分班') === oldCls) {
+               users[u].class = trimmed;
+           }
+       });
+       
+       saveClasses(); 
+       saveUsers(); 
+       refreshUserList(); 
+       toast('班級已更名為「' + trimmed + '」','s');
+    }
+    return;
+  }
+});
+
+// ═══════════════════════════════════
+// AUTH
+// ═══════════════════════════════════
+function openLoginModal(){
+  hide('loginErr');
+  G('loginName').value=''; G('loginPwd').value='';
+  G('loginOverlay').style.display='block';
+  G('loginModal').style.display='block';
+}
+function closeLoginModal(){
+  G('loginOverlay').style.display='none';
+  G('loginModal').style.display='none';
+}
+document.getElementById('loginModalClose').addEventListener('click',closeLoginModal);
+document.getElementById('loginModalClose2').addEventListener('click',closeLoginModal);
+G('loginOverlay').addEventListener('click',closeLoginModal);
+function doLogin(){
+  const name=V('loginName'), pwd=V('loginPwd');
+  if(!name||!pwd){ showLoginErr('請輸入姓名與密碼'); return; }
+  if(!users[name]){ showLoginErr('找不到此帳號'); return; }
+  if(users[name].pwd!==pwd){ showLoginErr('密碼錯誤'); return; }
+  lss('jj_curUser',name); sessionStorage.setItem('jj_curUser',name);
+  closeLoginModal();
+  enterApp(name);
+  if(pwd==='000'){ forcePwdChange=true; openChangePwdModal(true); return; }
+  checkNotifs();
+}
+function restoreSession(){
+  const name=ls('jj_curUser')||sessionStorage.getItem('jj_curUser');
+  if(!name) return;
+  // 若 users 物件中沒有此帳號（可能 Firebase 尚未同步），嘗試從 localStorage 補回
+  if(!users[name]){
+    const localUsers=ls('jj_users');
+    if(localUsers&&localUsers[name]){
+      users=localUsers;
+      if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
+    } else {
+      lsd('jj_curUser'); return;
+    }
+  }
+  enterApp(name); checkNotifs();
+}
+function enterApp(name){
+  curUser=name; isAdmin=users[name].type==='admin';
+  G('pillName').textContent=name;
+  G('pillRole').textContent={admin:'管理員',teacher:'教師',student:'學生'}[users[name].type]||'學生';
+  G('pillRole').className=isAdmin?'admin-tag':'role-tag';
+  G('userPill').style.display='flex';
+  hide('navLoginBtn');
+  G('btnMyBookings').style.display='inline-flex';  // 顯示「我的預約」快捷鈕
+  if(isAdmin){ show('navAdmin'); document.getElementById('mainBody').classList.add('is-admin'); G('adminBadge').style.display='inline'; }
+  else { hide('navAdmin'); document.getElementById('mainBody').classList.remove('is-admin'); G('adminBadge').style.display='none'; }
+  show('logoutBtn');
+  G('boardPage').classList.add('active'); G('adminPage').classList.remove('active');
+  G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
+  G('viewDate').value=todayStr();
+  // 不設定 min，讓使用者可查看過去日期（過去時段為 past/唯讀）
+  autoSetBoardView();
+  initUI(); updateBoard();
+  if(isAdmin) initAdminUI();
+  // Firebase real-time listeners
+  startListeners();
+}
+function doLogout(){
+  lsd('jj_curUser'); sessionStorage.removeItem('jj_curUser'); stopListeners();
+  curUser=''; isAdmin=false; forcePwdChange=false;
+  document.getElementById('mainBody').classList.remove('is-admin');
+  G('adminBadge').style.display='none'; G('userPill').style.display='none';
+  G('btnMyBookings').style.display='none';  // 隱藏「我的預約」快捷鈕
+  hide('navAdmin'); hide('logoutBtn'); show('navLoginBtn');
+  G('adminPage').classList.remove('active');
+  G('boardPage').classList.add('active');
+  G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
+  G('loginName').value=''; G('loginPwd').value='';
+  G('viewDate').value=todayStr();
+  autoSetBoardView();
+  updateBoard();
+}
+function showLoginErr(msg){ const e=G('loginErr'); e.textContent=msg; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),3200); }
+
+// ═══════════════════════════════════
+// FIREBASE REAL-TIME LISTENERS
+// ═══════════════════════════════════
+// ── sysData 最後拉取時間（毫秒）──
+let _lastSysDataFetch = 0;
+let _isSaving = false;
+const SYSDATA_POLL_MS = 45000; // 45 秒輪詢一次
+
+// 主動從 Firebase 拉取 sysData（節流：SYSDATA_POLL_MS 內不重複拉取）
+async function fetchSysDataIfStale(force=false){
+  if(!fbMode) return;
+  const now = Date.now();
+  if(!force && now - _lastSysDataFetch < SYSDATA_POLL_MS) return;
+  _lastSysDataFetch = now;
+  const s = await FB.get('sysData');
+  if(s){ sysData=s; lss('jj_data',s); }
+}
+
+function startListeners(){
+  if(!fbMode) return;
+  // sysData 不再使用 onValue（即時監聽會對所有在線使用者造成大量下載）
+  // 改用：(1) 使用者切換日期/時段時主動 get，(2) 定時 45 秒輪詢
+  window.__markLocalSave = ()=>{ _lastSysDataFetch = Date.now(); _isSaving = true; setTimeout(()=>{ _isSaving=false; }, 8000); };
+
+  // notifs 只監聽自己的節點，大幅減少下載量
+  const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
+  const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
+  const u4=FB.listen(`notifs/${curUser}`,v=>{ if(v&&Array.isArray(v)&&v.length){notifs[curUser]=v;lss('jj_notifs',notifs);} });
+  const u5=FB.listen('classes',v=>{ if(v&&Array.isArray(v)){classes=v;lss('jj_classes',v);if(isAdmin)refreshUserList();} });
+  fbListeners=[u2,u3,u4,u5];
+
+  // 定時輪詢 sysData（45 秒）
+  const pollTimer = setInterval(async ()=>{
+    if(!_isSaving){ await fetchSysDataIfStale(true); updateBoard(); }
+  }, SYSDATA_POLL_MS);
+  fbListeners.push(()=>clearInterval(pollTimer)); // 登出時一併清除
+}
+function stopListeners(){ fbListeners.forEach(u=>{ if(typeof u==='function') u(); }); fbListeners=[]; }
+
+// ═══════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════
+function checkNotifs(){
+  const list=notifs[curUser];
+  if(!list||!list.length) return;
+  G('notifList').innerHTML=list.map(n=>`
+    <div class="notif-item">
+      <div style="color:var(--red2);font-weight:500;margin-bottom:4px">❌ 預約已被管理員取消</div>
+      <div style="font-size:.8rem"><b>${esc(n.room)}</b> · ${esc(n.date)} · ${esc(n.time)}</div>
+      <div style="font-size:.75rem;color:var(--tx3);margin-top:3px">備注：${esc(n.note||'—')}</div>
+      <div style="font-size:.75rem;margin-top:5px;padding:6px 10px;background:rgba(217,64,64,.1);border-radius:5px">取消者：${esc(n.adminName)}　原因：<span style="color:var(--gold3)">${esc(n.reason)}</span></div>
+    </div>`).join('');
+  openModal('notifModal');
+}
+function pushNotif(userName,room,dateKey,time,note,reason){
+  if(!notifs[userName]) notifs[userName]=[];
+  const dl=(/^\d$/.test(String(dateKey)))?`固定（週${DAYS[+dateKey]}）`:dateKey;
+  notifs[userName].push({room,date:dl,time,note:note||'—',adminName:curUser,reason,t:new Date().toLocaleString('zh-TW')});
+  saveNotifs();
+}
+
+// ═══════════════════════════════════
+// CHANGE PASSWORD
+// ═══════════════════════════════════
+function openChangePwdModal(force=false){
+  forcePwdChange=force; toggle('cpNotice',force);
+  toggle('cpSkip',!force); toggle('cpClose',!force);
+  G('cp1').value=''; G('cp2').value=''; hide('cpErr'); openModal('changePwdModal');
+}
+G('confirmCpBtn').addEventListener('click',()=>{
+  const p1=V('cp1'),p2=V('cp2');
+  if(!p1){ showMErr('cpErr','請輸入新密碼'); return; }
+  if(p1!==p2){ showMErr('cpErr','兩次密碼不一致'); return; }
+  if(p1==='000'){ showMErr('cpErr','不能使用初始密碼'); return; }
+  users[curUser].pwd=p1; saveUsers();
+  forcePwdChange=false; closeModals(); toast('密碼已修改成功','s');
+});
+
+// ═══════════════════════════════════
+// INIT UI
+// ═══════════════════════════════════
+function initUI(){
+  rebuildHeader();
+  const tg=G('adminTimeGrid'); if(tg) tg.innerHTML=TIME_SLOTS.map(t=>`<label class="ci"><input type="checkbox" name="adminTime" value="${t}"><span>${t}</span></label>`).join('');
+  const dg=G('adminDayGrid');
+  if(dg) dg.innerHTML=DAYS.map((d,i)=>`<label class="ci"><input type="checkbox" name="adminDay" value="${i}"><span>週${d}</span></label>`).join('');
+}
+function rebuildHeader(){
+  const h=G('timeHeader'); if(!h) return;
+  h.innerHTML='<th class="rl" style="width:72px;min-width:72px">琴房</th>'+getVis().map(t=>{
+    return `<th style="color:var(--red2);font-weight:500;width:58px;min-width:58px;max-width:58px;white-space:nowrap"><span style="font-size:.7rem">${t}</span></th>`;
+  }).join('');
+}
+function initAdminUI(){
+  refreshRoomGrid();
+  renderRoomSortList(); refreshUserList(); refreshAdminLog(); updateCleanupStatus();
+  // Load current rules into textarea
+  const rules=ls('jj_rules')||''; const ra=G('adminRulesText'); if(ra) ra.value=rules;
+  // Init class dropdowns visibility
+  const nt=G('newMemberType'); if(nt) G('newMemberClassWrap').style.display=nt.value==='student'?'flex':'none';
+  // Show date range field (default mode = fixed)
+  setMode(curMode||'fixed');
+}
+
+document.addEventListener('click',ev=>{
+  if(ev.target.id==='saveRulesBtn'){
+    saveRules(); loadRulesNotice(); toast('規則說明已儲存並發布','s');
+  }
+});
+function refreshRoomGrid(){
+  const g=G('adminRoomGrid'); if(!g) return;
+  g.innerHTML=rooms.map(r=>`<label class="ci"><input type="checkbox" name="adminRoom" value="${esc(r)}"><span>${esc(r)}</span></label>`).join('');
+}
+
+// ═══════════════════════════════════
+// ROOM SORT LIST
+// ═══════════════════════════════════
+function renderRoomSortList(){
+  const el=G('roomSortList'); if(!el) return;
+  // Remove ALL old listeners by replacing the element
+  const clone=el.cloneNode(false);
+  el.parentNode.replaceChild(clone,el);
+  const nel=G('roomSortList');
+  nel.innerHTML=rooms.map((r,i)=>`
+    <div class="rsi" draggable="true" data-idx="${i}">
+      <span class="dh">☰</span>
+      <span class="rn" id="rn${i}">${esc(r)}</span>
+      <input class="ri hidden" id="ri${i}" value="${esc(r)}">
+      <div class="mvb">
+        <button class="mvbtn" data-a="up" data-i="${i}"${i===0?' disabled':''}>▲</button>
+        <button class="mvbtn" data-a="dn" data-i="${i}"${i===rooms.length-1?' disabled':''}>▼</button>
+      </div>
+      <button class="btn bgh bsm" style="padding:3px 7px;font-size:.68rem" data-a="edit" data-i="${i}" id="reb${i}">✏️</button>
+      <button class="btn bgh bsm hidden" style="padding:3px 7px;font-size:.68rem;color:var(--grn2)" data-a="save" data-i="${i}" id="rsb${i}">✓</button>
+      <button class="btn br bsm" style="padding:3px 7px;font-size:.68rem" data-a="del" data-i="${i}">✕</button>
+    </div>`).join('');
+  // Attach click delegation
+  nel.addEventListener('click', ev=>{
+    const btn=ev.target.closest('[data-a]'); if(!btn) return;
+    ev.stopPropagation();
+    const a=btn.dataset.a, i=parseInt(btn.dataset.i,10);
+    if(a==='up'){ if(i>0){ [rooms[i],rooms[i-1]]=[rooms[i-1],rooms[i]]; saveRooms(); refreshRoomGrid(); renderRoomSortList(); toast('已調整順序','i'); } }
+    else if(a==='dn'){ if(i<rooms.length-1){ [rooms[i],rooms[i+1]]=[rooms[i+1],rooms[i]]; saveRooms(); refreshRoomGrid(); renderRoomSortList(); toast('已調整順序','i'); } }
+    else if(a==='edit'){ startRename(i); }
+    else if(a==='save'){ confirmRename(i); }
+    else if(a==='del'){
+      const r=rooms[i];
+      showConfirm(`確定刪除琴房「${r}」？`, '此操作無法復原', ()=>{
+        rooms.splice(i,1); saveRooms(); refreshRoomGrid(); renderRoomSortList(); updateBoard(); toast(`「${r}」已刪除`,'i');
+      });
+    }
+  });
+
+  // Drag
+  nel.addEventListener('dragstart',ev=>{ dragSrcIdx=+ev.target.closest('.rsi').dataset.idx; ev.dataTransfer.effectAllowed='move'; ev.target.closest('.rsi').classList.add('dragging'); });
+  nel.addEventListener('dragover', ev=>{ ev.preventDefault(); ev.target.closest('.rsi')?.classList.add('drag-over'); });
+  nel.addEventListener('dragleave',ev=>{ ev.target.closest('.rsi')?.classList.remove('drag-over'); });
+  nel.addEventListener('drop',ev=>{
+    ev.preventDefault();
+    const target=ev.target.closest('.rsi'); if(!target) return;
+    QA('.rsi').forEach(r=>{r.classList.remove('drag-over','dragging');});
+    const tIdx=+target.dataset.idx;
+    if(dragSrcIdx!==null&&dragSrcIdx!==tIdx){
+      const moved=rooms.splice(dragSrcIdx,1)[0]; rooms.splice(tIdx,0,moved);
+      saveRooms(); refreshRoomGrid(); renderRoomSortList(); toast('已調整順序','i');
+    }
+    dragSrcIdx=null;
+  });
+  nel.addEventListener('dragend',()=>{ QA('.rsi').forEach(r=>{r.classList.remove('drag-over','dragging');}); dragSrcIdx=null; });
+}
+
+function startRename(i){
+  hide(`rn${i}`); show(`ri${i}`); hide(`reb${i}`); show(`rsb${i}`);
+  const inp=G(`ri${i}`); if(inp){ inp.focus(); inp.select(); }
+  inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter') confirmRename(i); if(ev.key==='Escape'){ hide(`ri${i}`); show(`rn${i}`); hide(`rsb${i}`); show(`reb${i}`); } },{once:true});
+}
+function confirmRename(i){
+  const inp=G(`ri${i}`); if(!inp) return;
+  const nv=inp.value.trim(), old=rooms[i];
+  if(!nv){ toast('名稱不可為空','e'); return; }
+  if(nv===old){ hide(`ri${i}`); show(`rn${i}`); hide(`rsb${i}`); show(`reb${i}`); return; }
+  if(rooms.includes(nv)){ toast('名稱已存在','e'); return; }
+  Object.keys(sysData).forEach(k=>{ if(sysData[k]?.[old]){ sysData[k][nv]=sysData[k][old]; delete sysData[k][old]; } });
+  rooms[i]=nv; saveRooms(); saveData(); refreshRoomGrid(); renderRoomSortList(); updateBoard(); toast(`已更名：${old} → ${nv}`,'s');
+}
+
+// ═══════════════════════════════════
+// HELPER: ADMIN QUICK BUTTONS
+// ═══════════════════════════════════
+function makeAdminActionBtns(key, room, time, d) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = "display:flex; width:100%; gap:3px; margin-top:4px; flex-wrap:wrap;";
+
+  const b0 = document.createElement('button');
+  b0.innerHTML = '👤';
+  b0.title = '管理員代填預約人';
+  b0.className = 'btn bgh';
+  b0.style.cssText = "flex:1; padding:2px 0; font-size:0.75rem; border-color:var(--gold); color:var(--gold2); border-radius:4px;";
+  b0.onclick = (e) => { e.stopPropagation(); openAdminWriteModal(key, room, time, d); };
+
+  const b1 = document.createElement('button');
+  b1.innerHTML = '✏️';
+  b1.title = '修改備注';
+  b1.className = 'btn bgh';
+  b1.style.cssText = "flex:1; padding:2px 0; font-size:0.75rem; border-color:var(--blue); color:var(--blue); border-radius:4px;";
+  b1.onclick = (e) => { e.stopPropagation(); openEditBookModal(key, room, time, d); };
+
+  const b2 = document.createElement('button');
+  b2.innerHTML = '✕';
+  b2.title = '取消預約';
+  b2.className = 'btn bgh';
+  b2.style.cssText = "flex:1; padding:2px 0; font-size:0.75rem; border-color:var(--red2); color:var(--red2); border-radius:4px;";
+  b2.onclick = (e) => { e.stopPropagation(); openDeleteModal(key, room, time); };
+
+  wrap.appendChild(b0);
+  wrap.appendChild(b1);
+  wrap.appendChild(b2);
+  return wrap;
+}
+
+function makeAdminSetBtn(key, room, time, d, label) {
+  const btn = document.createElement('button');
+  btn.innerHTML = '✕ ' + label;
+  btn.className = 'btn bgh';
+  btn.style.cssText = "width:90%; margin-top:4px; padding:2px 0; font-size:0.65rem; border-color:var(--red2); color:var(--red2); border-radius:4px;";
+  btn.onclick = (e) => { e.stopPropagation(); adminQuickDel(String(key), room, time); };
+  return btn;
+}
+
+async function adminQuickDel(key,room,time){
+  if(!isAdmin) return;
+  const d=sysData[key]?.[room]?.[time];
+  if(!d) return;
+  if(d.type==='lock'||d.type==='fixed'){
+    addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}（${d.teacher||d.note||'—'}）`,cancellable:false});
+    delete sysData[key][room][time]; lss('jj_data',sysData);
+    if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+    updateBoard();
+    if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
+  } else {
+    openDeleteModal(key,room,time);
+  }
+}
+
+// ═══════════════════════════════════
 // BOARD
 // ═══════════════════════════════════
 function updateBoard(){
@@ -143,93 +1292,1381 @@ function updateBoard(){
   if(fbMode && !_isSaving && Date.now() - _lastSysDataFetch >= SYSDATA_POLL_MS){
     fetchSysDataIfStale().then(()=>{ updateBoard(); });
     // 先用舊資料渲染，避免等待期間畫面空白
-  // ★ 最佳化：切換日期時只拉該日的 sysData，不拉整個節點
-  if(fbMode && !_isSaving){
-    const ds = G('viewDate')?.value || todayStr();
-    if(!/^\d$/.test(ds)){
-      const now=Date.now();
-      const last=(window.force_fetch_dates||{})[ds]||0;
-      if(now - last >= SYSDATA_POLL_MS){
-        fetchDateData(ds).then(()=>{ updateBoard(); });
-        // 先用現有資料渲染，避免等待期間畫面空白
+  }
+  try {
+    let ds = G('viewDate').value;
+    // 防呆：日期若空則帶入今日
+    if(!ds) { ds = todayStr(); G('viewDate').value = ds; }
+    // 防呆：琴房清單遺失時恢復預設
+    if(!Array.isArray(rooms) || rooms.length === 0) rooms = DEFAULT_ROOMS;
+
+    const dow=new Date(ds+'T00:00:00').getDay();
+    if(isNaN(dow)) return;
+    const dowKey=String(dow);
+    
+    G('dayDisplay').textContent='週'+DAYS[dow];
+    rebuildHeader();
+    const body=G('boardBody'); body.innerHTML='';
+    const today=todayStr(); const now=new Date();
+    const maxD=maxDateStr();
+    const vis=getVis();
+    if(!vis || vis.length === 0) return;
+    const yesterday=yesterdayOf(ds);
+
+    rooms.forEach(room=>{
+      const tr=document.createElement('tr');
+      const rl=document.createElement('td'); rl.className='rl';
+      // Split room name: leading digits vs text portion for two-line display
+      const rmMatch=room.match(/^(\d+)(.*)$/);
+      if(rmMatch && rmMatch[2].trim()){
+        rl.innerHTML=`<div style="font-size:.72rem;font-weight:700">${esc(rmMatch[1])}</div><div style="font-size:.62rem;font-weight:500;color:var(--tx2);white-space:normal;word-break:break-all;line-height:1.2">${esc(rmMatch[2].trim())}</div>`;
+      } else {
+        rl.innerHTML=`<div style="font-size:.68rem;white-space:normal;word-break:break-all;line-height:1.3">${esc(room)}</div>`;
       }
-    }
-}
-try {
-let ds = G('viewDate').value;
-@@ -1980,7 +2048,7 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-addLog({t:new Date().toLocaleString('zh-TW'),msg:`封鎖: ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
-toast(`封鎖已套用（${dates.length}天）`,'s');
-}
-  await saveData(); updateBoard(); refreshAdminLog();
-  await saveData(null); updateBoard(); refreshAdminLog();
-});
-// ═══════════════════════════════════
-// MEMBERS
-@@ -2332,9 +2400,7 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-}
-ok++;
-});
-  await saveData(); updateBoard();
-  const msg=`匯入：${ok}筆成功${skip?`，${skip}筆跳過`:''}`;
-  G('csvResult').textContent=errs.length?msg+'（'+errs.slice(0,2).join('；')+'）':msg;
-  await saveData(null); updateBoard();
-ok>0?toast(msg,'s'):toast('沒有成功匯入任何資料','e');
-});
-G('clearFixedBtn').addEventListener('click',()=>{
-@@ -2356,7 +2422,7 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-if(Object.keys(sysData[k]||{}).length===0) delete sysData[k];
-}
-});
-    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
-    await saveData(null); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
-});
-});
-G('clearLockBtn').addEventListener('click',()=>{
-@@ -2367,7 +2433,7 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-Object.keys(sysData[k][room]||{}).forEach(t=>{ if(sysData[k][room][t]?.type==='lock') delete sysData[k][room][t]; });
-});
-});
-    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
-    await saveData(null); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
-});
-});
-G('dlTemplateBtn').addEventListener('click',()=>{
-@@ -2502,13 +2568,36 @@ <h3>📥 固定課表 &amp; 封鎖時段 CSV 匯入</h3>
-if(prefillName) setTimeout(doQuery, 80);
-}
+      tr.appendChild(rl);
 
-function doQuery(){
-async function doQuery(){
-const name = G('queryName').value.trim();
-if(!name){ toast('請輸入姓名','e'); return; }
-const fromD = G('queryFrom').value;
-const toD   = G('queryTo').value;
-const today = todayStr();
+      vis.forEach(time=>{
+        const td=document.createElement('td');
+        const cell=document.createElement('div'); cell.className='cell';
+        const [h,m]=time.split(':').map(Number);
+        const isPast=(ds<today)||(ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes())));
+        const outRange=ds>maxD;
 
-  // ★ 最佳化：查詢前從 Firebase 按日期拉取範圍內資料（避免看到舊快取）
-  if(fbMode && fromD && toD){
-    toast('查詢中…','i');
-    const dateList=[];
-    let cur=new Date(fromD+'T00:00:00');
-    const end=new Date(toD+'T00:00:00');
-    while(cur<=end){ dateList.push(dateStr(cur)); cur.setDate(cur.getDate()+1); }
-    // 只拉尚未快取或超過 45 秒的日期（避免不必要的重複請求）
-    const now=Date.now();
-    const stale=dateList.filter(dk=>{
-      const last=(window.force_fetch_dates||{})[dk]||0;
-      return now-last >= SYSDATA_POLL_MS;
+        const bookD = sysData[ds]?.[room]?.[time];
+        const fixedD= sysData[dowKey]?.[room]?.[time];
+
+        const slot=document.createElement('div');
+
+        if(bookD){
+          if(bookD.type==='lock'){
+            slot.className='slot sk'+(isPast?' past':'');
+            slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
+            if(isAdmin&&!isPast) slot.appendChild(makeAdminSetBtn(ds,room,time,bookD, '解除封鎖'));
+          } else if(bookD.type==='fixed'){
+            // CSV-imported fixed with date — still bookable
+            buildFixedSlot(slot,cell,bookD,ds,room,time,isPast,outRange,yesterday,today);
+          } else {
+            // Regular booking
+            const isT=users[bookD.name]?.type==='teacher'||users[bookD.name]?.type==='admin';
+
+            // Feature 2: 固定排課但被非指定對象於前一日預約 → 紅色背景
+            // 同時支援週期固定（fixedD from dowKey）及日期型固定（bookD.origFixed）
+            const fixedRawForCheck = fixedD?.type==='fixed' ? (fixedD.teacher||fixedD.note||'') : (bookD.origFixed||'');
+            // 例外：備注為「主副修課」且授課教師為固定排課指定對象 → 視為正常使用，依預約人身份顯色
+            const lessonTeacher = (bookD.note||'').startsWith('主副修課・') ? (bookD.note.split('・')[1]||'') : '';
+            const isLessonWithDesignee = !!fixedRawForCheck && !!lessonTeacher && isNameInFixed(fixedRawForCheck, lessonTeacher);
+            const isSboSlot = !!fixedRawForCheck && !isNameInFixed(fixedRawForCheck, bookD.name) && !isLessonWithDesignee;
+
+            if(isSboSlot){
+              slot.className='slot sbo'+(isPast?' pv':'');
+            } else {
+              slot.className='slot '+(isT?'st':'sb')+(isPast?' pv':'');
+            }
+            slot.innerHTML=`<span class="sn">${esc(bookD.name)}</span><span class="snote">${esc(bookD.note||'')}</span>`;
+
+            // Feature 4: 所有已預約時段（不論登入與否、是否過去）皆可點擊查看
+            slot.style.cursor='pointer';
+            slot.addEventListener('click',(e)=>{
+              if(e.target.closest('[data-a]')||e.target.closest('.btn')) return;
+              openViewInfoModal(ds,room,time,bookD,fixedD||null,isSboSlot);
+            });
+
+            if(isAdmin && !isPast) {
+               slot.appendChild(makeAdminActionBtns(ds,room,time,bookD));
+            } else if (!isPast && bookD.name===curUser) {
+               const hint = document.createElement('div');
+               hint.style.cssText = "font-size:0.5rem; opacity:0.8; margin-top:2px;";
+               hint.textContent = "(點擊可查看)";
+               slot.appendChild(hint);
+            }
+          }
+        } else if(fixedD&&fixedD.type==='fixed'){
+          buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
+        } else {
+          if(isPast||outRange){ slot.className='slot sf past'; slot.innerHTML='<span>—</span>'; }
+          else {
+            slot.className='slot sf';
+            if(isAdmin){
+              // 管理員：顯示 👤 按鈕，點整格或按鈕都觸發代填
+              slot.innerHTML='<span style="font-size:.75rem;opacity:.5">＋</span>';
+              const awBtn=document.createElement('button');
+              awBtn.innerHTML='👤 代填';
+              awBtn.title='管理員代填預約';
+              awBtn.className='btn bgh';
+              awBtn.style.cssText='padding:2px 6px;font-size:0.7rem;border-color:var(--gold);color:var(--gold2);border-radius:4px;margin-top:3px;width:90%;';
+              awBtn.onclick=(e)=>{e.stopPropagation();openAdminWriteModal(ds,room,time,null);};
+              slot.addEventListener('click',()=>openAdminWriteModal(ds,room,time,null));
+              slot.appendChild(awBtn);
+            } else {
+              slot.innerHTML='<span style="font-size:.9rem">＋</span>';
+              slot.addEventListener('click',()=>{
+                if(!curUser){ openLoginModal(); return; }
+                openBookModal(room,time,null);
+              });
+            }
+          }
+        }
+
+        cell.appendChild(slot);
+        td.appendChild(cell); tr.appendChild(td);
+      });
+      body.appendChild(tr);
     });
-    for(const dk of stale){
-      const v=await FB.get(`sysData/${dk}`);
-      if(v){ sysData[dk]=v; }
-      else { delete sysData[dk]; }
-      if(!window.force_fetch_dates) window.force_fetch_dates={};
-      window.force_fetch_dates[dk]=now;
+  } catch(err) {
+    console.error('Board rendering error:', err);
+    toast('看板讀取發生異常，請重新整理頁面','e');
+  }
+}
+
+// ── 判斷 curUser 是否在固定排課的指定對象中（支援「＋」分隔多人）──
+// rawTeacher 格式：「姓名A＋姓名B・備注」，姓名前段以「＋」分隔多人
+function isNameInFixed(raw, userName){
+  if(!userName) return false;
+  const namePart = raw.split('・')[0];       // 取「・」前段
+  return namePart.split('＋').map(n=>n.trim()).includes(userName);
+}
+
+// ── 判斷固定排課的所有指定對象是否全為學生（非教師/管理員）──
+function isStudentFixed(raw){
+  const namePart = raw.split('・')[0];
+  const names = namePart.split('＋').map(n=>n.trim()).filter(Boolean);
+  if(!names.length) return false;
+  return names.every(n => users[n]?.type === 'student');
+}
+
+// ── FIXED SLOT RENDERING with booking rules ──
+function buildFixedSlot(slot,cell,fixedD,key,room,time,isPast,outRange,yesterday,today){
+  const rawTeacher=fixedD.teacher||fixedD.note||'';
+  const isNameMatch=isNameInFixed(rawTeacher, curUser);
+  const ds=G('viewDate').value;
+  const actualToday=todayStr();
+  // 前一日才開放：今日 >= 預約日的前一天
+  const dayBeforeDs=yesterdayOf(ds);
+  const withinWindow=(actualToday>=dayBeforeDs);
+
+  // Feature 1: 判斷是否為學生指定的固定排課（用藍色虛線）
+  const isStudentSlot = isStudentFixed(rawTeacher);
+  const baseClass = isStudentSlot ? 'ss' : 'sx';
+
+  let canBook=false;
+  if(!curUser){ canBook=false; }
+  else if(isAdmin){ canBook=true; }
+  else if(isNameMatch){ canBook=true; }
+  else if(withinWindow&&!outRange){ canBook=true; }
+
+  if(isPast||outRange){
+    slot.className=`slot ${baseClass} past`;
+    slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span>`;
+  } else if(canBook){
+    slot.className=`slot ${baseClass}`;
+    slot.addEventListener('click',()=>{ if(!curUser){ openLoginModal(); return; } openBookModal(room,time,fixedD); });
+    slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="fhint">＋</span>`;
+  } else if(!curUser){
+    // 未登入：顯示固定排課資訊，點擊引導登入
+    slot.className=`slot ${baseClass}`;
+    slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">登入後可預約</span>`;
+    slot.addEventListener('click',()=>openLoginModal());
+  } else {
+    // 已登入但尚未到開放日（前一日才開放）
+    slot.className='slot sr';
+    slot.innerHTML=`<span class="sn">${esc(rawTeacher)}</span><span class="snote" style="font-size:.52rem;color:var(--tx3)">前一日開放</span>`;
+  }
+  if(isAdmin&&!isPast) {
+    const fwrap=document.createElement('div');
+    fwrap.style.cssText='display:flex;width:100%;gap:4px;margin-top:4px;';
+    const feBtn=document.createElement('button');
+    feBtn.innerHTML='✏️ 修改';
+    feBtn.className='btn bgh';
+    feBtn.style.cssText='flex:1;padding:2px 0;font-size:0.62rem;border-color:var(--blue);color:var(--blue);border-radius:4px;';
+    feBtn.onclick=(e)=>{e.stopPropagation();openEditFixedModal(key,room,time,fixedD);};
+    const fdBtn=makeAdminSetBtn(key,room,time,fixedD,'移除排課');
+    fdBtn.style.cssText='flex:1;padding:2px 0;font-size:0.62rem;border-color:var(--red2);color:var(--red2);border-radius:4px;width:auto;margin-top:0;';
+    fwrap.appendChild(feBtn);
+    fwrap.appendChild(fdBtn);
+    slot.appendChild(fwrap);
+  }
+}
+
+// ═══════════════════════════════════
+// BOOK MODAL
+// ═══════════════════════════════════
+function openBookModal(room,startTime,fixedD){
+  pending={room,startTime};
+  const ds=G('viewDate').value;
+  const dow=new Date(ds+'T00:00:00').getDay();
+  // Fixed notice
+  const fd=fixedD||(sysData[String(dow)]?.[room]?.[startTime]);
+  const isFix=fd&&fd.type==='fixed';
+  toggle('fixedNotice',isFix);
+  toggle('reservedNotice',false);
+  if(isFix) G('fnText').textContent=fd.teacher||fd.note||'';
+  G('bookInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期</span><span class="ilv">${ds}（週${DAYS[dow]}）</span></div>
+    <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(curUser)}</span></div>
+    <div class="ir"><span class="ila">身份</span><span class="ilv">${{admin:'管理員',teacher:'教師',student:'學生'}[users[curUser]?.type]||'學生'}</span></div>`;
+  // Time grid
+  const tg=G('bookTimeGrid'); tg.innerHTML='';
+  const now=new Date(); const today=todayStr();
+  const dowKey=String(dow);
+  TIME_SLOTS.forEach(ts=>{
+    const bD=sysData[ds]?.[room]?.[ts];
+    const occ=bD&&bD.type!=='fixed';
+    const [hh,mm]=ts.split(':').map(Number);
+    const past=(ds<today)||(ds===today&&(hh<now.getHours()||(hh===now.getHours()&&mm<=now.getMinutes())));
+    // Check booking restriction for each fixed slot
+    const fixTs=sysData[dowKey]?.[room]?.[ts]||sysData[ds]?.[room]?.[ts];
+    let restricted=false;
+    if(!isAdmin&&fixTs&&fixTs.type==='fixed'){
+      const rawT=fixTs.teacher||fixTs.note||'';
+      const isNameM=isNameInFixed(rawT, curUser);
+      const allowedFrom=yesterdayOf(ds);
+      const actualToday2=todayStr();
+      if(!isNameM&&actualToday2<allowedFrom) restricted=true;
     }
+    const dis=occ||past||restricted;
+    const checked=ts===startTime&&!dis;
+    tg.innerHTML+=`<label class="ci${dis?' disabled':''}"><input type="checkbox" name="bTime" value="${ts}"${checked?' checked':''}${dis?' disabled':''}><span>${ts}${restricted?'🔒':''}</span></label>`;
+  });
+  G('bookNoteSelect').value='自主練習';
+  hide('lessonWrap'); hide('bookCoWrap'); hide('bookSpecialWrap'); hide('noteOtherWrap');
+  G('lessonTeacher').value=''; G('lessonInstrument').value=''; G('bookCoName').value=''; G('bookSpecialTeacher').value=''; G('bookNoteOther').value='';
+  hide('bookErr');
+  openModal('bookModal');
+}
+
+G('bookNoteSelect').addEventListener('change',function(){
+  toggle('lessonWrap',this.value==='主副修課');
+  toggle('bookCoWrap',this.value==='共練');
+  toggle('bookSpecialWrap',this.value==='特別時段');
+  toggle('noteOtherWrap',this.value==='other');
+});
+
+G('confirmBookBtn').addEventListener('click', async ()=>{
+  const ds=G('viewDate').value;
+  let note=G('bookNoteSelect').value;
+  if(note==='主副修課'){ const t=V('lessonTeacher'),ins=V('lessonInstrument'); if(!t||!ins){ showMErr('bookErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
+  else if(note==='共練'){ const co=V('bookCoName'); if(!co){ showMErr('bookErr','請填寫共練者姓名'); return; } note=`共練・${co}`; }
+  else if(note==='特別時段'){ const sp=V('bookSpecialTeacher'); if(!sp){ showMErr('bookErr','請填寫教師姓名'); return; } note=`特別時段・${sp}教師`; }
+  else if(note==='other'){ note=V('bookNoteOther'); if(!note){ showMErr('bookErr','請填寫備注內容'); return; } }
+  const sel=QA('input[name="bTime"]:checked').map(e=>e.value);
+  if(!sel.length){ showMErr('bookErr','請至少選擇一個時段'); return; }
+  const {room}=pending;
+  const userType=users[curUser]?.type;
+  // 預先計算各時段的原始固定排課資訊（供紅色顯示 Feature 2 使用）
+  const dowKey2 = String(new Date(ds+'T00:00:00').getDay());
+  const origFixedMap={};
+  sel.forEach(t=>{
+    const dSlot=sysData[ds]?.[room]?.[t];
+    const wSlot=sysData[dowKey2]?.[room]?.[t];
+    const orig = dSlot?.type==='fixed' ? (dSlot.teacher||dSlot.note||'') :
+                 wSlot?.type==='fixed'  ? (wSlot.teacher||wSlot.note||'') : null;
+    if(orig) origFixedMap[t]=orig;
+  });
+
+  // ── Firebase 模式：使用 runTransaction 原子性寫入，防止多人同時搶同一時段 ──
+  if(fbMode){
+    let txConflicts=[];
+    try{
+      const result = await FB.transaction(`sysData/${ds}/${room}`, (roomData)=>{
+        // roomData 為 Firebase 目前最新值（原子讀取）
+        if(!roomData) roomData={};
+        txConflicts=[];
+        for(const t of sel){
+          const existing=roomData[t];
+          if(existing && existing.type!=='fixed'){
+            txConflicts.push(t);
+          }
+        }
+        if(txConflicts.length) return; // 回傳 undefined = 中止交易，不寫入
+        // 全部時段可用，寫入（同時保存原固定資訊，供 Feature 2 紅色顯示）
+        for(const t of sel){
+          // 優先從 server roomData 取得 date-specific fixed，再 fallback 到本地週期固定
+          const srvFixed = roomData[t]?.type==='fixed' ? (roomData[t].teacher||roomData[t].note||'') : null;
+          const orig = srvFixed || origFixedMap[t] || null;
+          const entry={name:curUser,note,type:'book',userType};
+          if(orig) entry.origFixed=orig;
+          roomData[t]=entry;
+        }
+        return roomData;
+      });
+      // 取得 transaction 結果的 snapshot（無需額外 FB.get()）
+      const snapVal = result.snapshot ? result.snapshot.val() : null;
+      if(!result.committed){
+        showMErr('bookErr',`時段 ${txConflicts.join('、')} 已被他人搶先預約，請重新選擇`);
+        // 用 snapshot 更新本地看板顯示最新狀態
+        if(snapVal!=null){ if(!sysData[ds]) sysData[ds]={}; sysData[ds][room]=snapVal; lss('jj_data',sysData); updateBoard(); }
+        return;
+      }
+      // 交易成功：立即更新本地快取（優先用 snapshot，fallback 到手動設值）
+      if(!sysData[ds]) sysData[ds]={};
+      if(snapVal!=null){ sysData[ds][room]=snapVal; }
+      else {
+        if(!sysData[ds][room]) sysData[ds][room]={};
+        sel.forEach(t=>{
+          const entry={name:curUser,note,type:'book',userType};
+          if(origFixedMap[t]) entry.origFixed=origFixedMap[t];
+          sysData[ds][room][t]=entry;
+        });
+      }
+      lss('jj_data',sysData);
+    } catch(err){
+      console.error('[Transaction] 預約失敗:', err);
+      showMErr('bookErr','預約時發生錯誤，請重新整理後再試'); return;
+    }
+  } else {
+    // ── 離線模式（localStorage）：本地衝突檢查後直接寫入 ──
+    if(!sysData[ds]) sysData[ds]={};
+    if(!sysData[ds][room]) sysData[ds][room]={};
+    const conflicts=sel.filter(t=>{ const d=sysData[ds][room][t]; return d&&d.type!=='fixed'; });
+    if(conflicts.length){ showMErr('bookErr',`時段 ${conflicts.join('、')} 已被佔用`); return; }
+    sel.forEach(t=>{
+      const entry={name:curUser,note,type:'book',userType};
+      if(origFixedMap[t]) entry.origFixed=origFixedMap[t];
+      sysData[ds][room][t]=entry;
+    });
     lss('jj_data',sysData);
   }
 
-queryResults = [];
+  // 寫入日誌
+  sel.forEach(t=>{
+    addLog({t:new Date().toLocaleString('zh-TW'),msg:`${curUser} 預約 ${room} ${ds} ${t}（${note}）`,bookKey:ds,bookRoom:room,bookTime:t,booker:curUser,bookNote:note,cancellable:true});
+  });
+  closeModals(); updateBoard();
+  if(isAdmin) refreshAdminLog();
+  toast(`${room} 預約成功（${sel.length}個時段）`,'s');
+});
 
-Object.keys(sysData).forEach(dateKey=>{
+// ═══════════════════════════════════
+// DELETE BOOKING
+// ═══════════════════════════════════
+function openDeleteModal(dateKey,room,time){
+  const key=String(dateKey);
+  const d=sysData[key]?.[room]?.[time];
+  if(!d||!d.name) return;
+  pending={key,room,time};
+  const dl=/^\d$/.test(key)?`每週固定（週${DAYS[+key]}）`:key;
+  G('deleteInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期/時段</span><span class="ilv">${esc(dl)} ${time}</span></div>
+    <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(d.name)}</span></div>
+    <div class="ir"><span class="ila">備注</span><span class="ilv">${esc(d.note||'—')}</span></div>`;
+  if(isAdmin&&d.name!==curUser){ hide('selfDelWrap'); show('adminDelWrap'); G('adminDelReason').value=''; }
+  else { show('selfDelWrap'); hide('adminDelWrap'); G('delPwd').value=''; }
+  hide('delErr'); openModal('deleteModal');
+}
+
+G('confirmDelBtn').addEventListener('click', async ()=>{
+  const {key,room,time}=pending;
+  const d=sysData[key]?.[room]?.[time]; if(!d){ closeModals(); return; }
+  if(isAdmin&&d.name!==curUser){
+    const reason=V('adminDelReason'); if(!reason){ showMErr('delErr','請填寫取消原因'); return; }
+    pushNotif(d.name,room,key,time,d.note,reason);
+    doDelete(key,room,time,`[管理員 ${curUser}] 取消 ${d.name} 的預約，原因：${reason}`);
+    toast('已取消並通知當事人','s');
+  } else {
+    if(isAdmin){ doDelete(key,room,time); toast('預約已取消','i'); return; }
+    const pwd=V('delPwd');
+    if(users[d.name]?.pwd===pwd){ doDelete(key,room,time); toast('預約已取消','i'); }
+    else showMErr('delErr','密碼錯誤');
+  }
+});
+async function doDelete(key,room,time,logMsg){
+  const d=sysData[key]?.[room]?.[time]; if(!d) return;
+  addLog({t:new Date().toLocaleString('zh-TW'),msg:logMsg||`取消預約 ${room} ${key} ${time}${d.name?' ('+d.name+')':''}`,cancellable:false});
+
+  // ── Feature 2 還原：若此預約覆蓋了日期型固定排課（origFixed），且無對應週期固定，則還原固定排課 ──
+  const origFixed = d.origFixed||'';
+  const isDateKey = !/^\d$/.test(key);
+  let restored = false;
+  if(origFixed && isDateKey){
+    const dowKey3 = String(new Date(key+'T00:00:00').getDay());
+    const hasWeeklyFixed = sysData[dowKey3]?.[room]?.[time]?.type==='fixed';
+    if(!hasWeeklyFixed){
+      // 還原日期型固定排課
+      const fixedEntry = {type:'fixed', teacher: origFixed};
+      sysData[key][room][time] = fixedEntry;
+      lss('jj_data',sysData);
+      if(fbMode) await FB.set(`sysData/${key}/${room}/${time}`, fixedEntry);
+      restored = true;
+    }
+  }
+  if(!restored){
+    delete sysData[key][room][time];
+    lss('jj_data',sysData);
+    if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+  }
+
+  closeModals(); updateBoard();
+  if(isAdmin) refreshAdminLog();
+}
+
+// ═══════════════════════════════════
+// VIEW INFO MODAL (Feature 4)
+// ═══════════════════════════════════
+function openViewInfoModal(dateKey,room,time,bookD,fixedD,isSboSlot){
+  const key=String(dateKey);
+  if(!bookD) return;
+  const dl=/^\d$/.test(key)?`每週固定（週${DAYS[+key]}）`:key;
+  const isOwn = curUser && bookD.name===curUser;
+  const canCancel = !isPastSlot(dateKey,time) && (isOwn || isAdmin);
+  const canEdit   = isAdmin && !isPastSlot(dateKey,time);
+
+  // Feature 2: 顯示原固定使用者（同時支援週期固定及日期型固定）
+  const fixedRaw = (fixedD?.type==='fixed' ? (fixedD.teacher||fixedD.note||'') : '') || (bookD.origFixed||'');
+  toggle('viewInfoFixedNotice', !!fixedRaw);
+  if(fixedRaw){
+    G('viewInfoFixed').textContent=fixedRaw;
+    toggle('viewInfoSbo', !!isSboSlot);
+  }
+
+  G('viewInfoContent').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期／時段</span><span class="ilv">${esc(dl)} ${esc(time)}</span></div>
+    <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(bookD.name)}</span></div>
+    <div class="ir"><span class="ila">身份</span><span class="ilv">${{admin:'管理員',teacher:'教師',student:'學生'}[users[bookD.name]?.type]||'學生'}</span></div>
+    <div class="ir"><span class="ila">備注</span><span class="ilv">${esc(bookD.note||'—')}</span></div>`;
+
+  // Cancel / Edit buttons visibility
+  const cancelBtn=G('viewInfoCancelBtn');
+  const editBtn=G('viewInfoEditBtn');
+  cancelBtn.classList.toggle('hidden',!canCancel);
+  editBtn.classList.toggle('hidden',!canEdit);
+
+  // Wire up buttons (replace listeners)
+  const newCancel=cancelBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancel,cancelBtn);
+  newCancel.classList.toggle('hidden',!canCancel);
+  newCancel.addEventListener('click',()=>{ closeModals(); openDeleteModal(key,room,time); });
+
+  const newEdit=editBtn.cloneNode(true);
+  editBtn.parentNode.replaceChild(newEdit,editBtn);
+  newEdit.classList.toggle('hidden',!canEdit);
+  newEdit.addEventListener('click',()=>{ closeModals(); openEditBookModal(key,room,time,bookD); });
+
+  openModal('viewInfoModal');
+}
+
+function isPastSlot(dateKey,time){
+  const ds=String(dateKey);
+  const today=todayStr();
+  const now=new Date();
+  const [h,m]=time.split(':').map(Number);
+  return (ds<today)||(ds===today&&(h<now.getHours()||(h===now.getHours()&&m<=now.getMinutes())));
+}
+
+// ═══════════════════════════════════
+// ADMIN DEL SETTING (fixed/lock)
+// ═══════════════════════════════════
+function openAdminDelSetModal(key,room,time,d){
+  pending={key,room,time};
+  const label=d.type==='fixed'?'固定排課':'封鎖時段';
+  const kl=/^\d$/.test(key)?`每週（週${DAYS[+key]}）`:key;
+  G('adminDelSetInfo').innerHTML=`
+    <div class="ir"><span class="ila">類型</span><span class="ilv ac">${label}</span></div>
+    <div class="ir"><span class="ila">琴房</span><span class="ilv">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期/星期</span><span class="ilv">${esc(kl)} ${time}</span></div>
+    <div class="ir"><span class="ila">說明</span><span class="ilv">${esc(d.teacher||d.note||'—')}</span></div>`;
+  G('adminDelSetNote').value=''; openModal('adminDelSetModal');
+}
+G('confirmAdminDelSetBtn').addEventListener('click', async ()=>{
+  const {key,room,time}=pending;
+  const d=sysData[key]?.[room]?.[time]; if(!d) return;
+  const note=V('adminDelSetNote')||'管理員刪除';
+  addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 刪除${d.type==='fixed'?'固定排課':'封鎖'} ${room} ${key} ${time}，備注：${note}`,cancellable:false});
+  delete sysData[key][room][time]; lss('jj_data',sysData);
+  if(fbMode) await FB.remove(`sysData/${key}/${room}/${time}`);
+  closeModals(); updateBoard();
+  if(isAdmin) refreshAdminLog(); toast('時段設定已刪除','s');
+});
+// ═══════════════════════════════════
+// EDIT BOOKING (Admin)
+// ═══════════════════════════════════
+function openEditBookModal(dateKey,room,time,d){
+  pending={key:dateKey,room,time};
+  const dl=/^\d$/.test(String(dateKey))?`每週固定（週${DAYS[+dateKey]}）`:dateKey;
+  G('editBookInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期/時段</span><span class="ilv">${esc(dl)} ${time}</span></div>
+    <div class="ir"><span class="ila">預約人</span><span class="ilv">${esc(d.name)}</span></div>`;
+  // Pre-fill note
+  const note=d.note||'';
+  let selectVal='自主練習';
+  if(note.startsWith('主副修課')) selectVal='主副修課';
+  else if(note.startsWith('共練')) selectVal='共練';
+  else if(note.startsWith('特別時段')) selectVal='特別時段';
+  else if(note==='配伴奏') selectVal='配伴奏';
+  else if(note!=='自主練習'&&note!=='') selectVal='other';
+  G('editNoteSelect').value=selectVal;
+  toggle('editLessonWrap',selectVal==='主副修課');
+  toggle('editCoWrap',selectVal==='共練');
+  toggle('editSpecialWrap',selectVal==='特別時段');
+  toggle('editNoteOtherWrap',selectVal==='other');
+  if(selectVal==='主副修課'){ const parts=note.split('・'); G('editLessonTeacher').value=parts[1]||''; G('editLessonInstrument').value=parts[2]||''; }
+  if(selectVal==='共練'){ const parts=note.split('・'); G('editCoName').value=parts[1]||''; }
+  if(selectVal==='特別時段'){ const parts=note.split('・'); G('editSpecialTeacher').value=(parts[1]||'').replace(/教師$/, ''); }
+  if(selectVal==='other') G('editNoteOther').value=note;
+  hide('editErr');
+  openModal('editBookModal');
+}
+G('editNoteSelect').addEventListener('change',function(){
+  toggle('editLessonWrap',this.value==='主副修課');
+  toggle('editCoWrap',this.value==='共練');
+  toggle('editSpecialWrap',this.value==='特別時段');
+  toggle('editNoteOtherWrap',this.value==='other');
+});
+G('confirmEditBookBtn').addEventListener('click', async ()=>{
+  const {key,room,time}=pending;
+  const d=sysData[key]?.[room]?.[time]; if(!d){ closeModals(); return; }
+  let note=G('editNoteSelect').value;
+  if(note==='主副修課'){ const t=V('editLessonTeacher'),ins=V('editLessonInstrument'); if(!t||!ins){ showMErr('editErr','請填寫授課老師與課程樂器'); return; } note=`主副修課・${t}・${ins}`; }
+  else if(note==='共練'){ const co=V('editCoName'); if(!co){ showMErr('editErr','請填寫共練者姓名'); return; } note=`共練・${co}`; }
+  else if(note==='特別時段'){ const sp=V('editSpecialTeacher'); if(!sp){ showMErr('editErr','請填寫教師姓名'); return; } note=`特別時段・${sp}教師`; }
+  else if(note==='other'){ note=V('editNoteOther'); if(!note){ showMErr('editErr','請填寫備注內容'); return; } }
+  d.note=note; lss('jj_data',sysData);
+  // 只更新 note 欄位，避免覆蓋其他人的預約
+  if(fbMode) await FB.update(`sysData/${key}/${room}/${time}`,{note});
+  closeModals(); updateBoard();
+  if(isAdmin) refreshAdminLog();
+  toast('預約備注已修改','s');
+});
+// ═══════════════════════════════════
+// ADMIN WRITE MODAL (代填預約)
+// ═══════════════════════════════════
+function openAdminWriteModal(dateKey,room,time,existingD){
+  if(!isAdmin) return;
+  pending={key:String(dateKey),room,time};
+  const ds=G('viewDate').value;
+  const dow=new Date(ds+'T00:00:00').getDay();
+  const dl=/^\d$/.test(String(dateKey))?`每週固定（週${DAYS[+dateKey]}）`:dateKey;
+  G('adminWriteInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期／時段</span><span class="ilv">${esc(dl)} ${time}</span></div>
+    ${existingD&&existingD.name?`<div class="ir"><span class="ila">目前預約人</span><span class="ilv" style="color:var(--tx3)">${esc(existingD.name)}</span></div>`:''}`;
+  G('adminWriteName').value=existingD?.name||'';
+  const note=existingD?.note||'';
+  let sv='自主練習';
+  if(note.startsWith('主副修課')) sv='主副修課';
+  else if(note.startsWith('共練')) sv='共練';
+  else if(note.startsWith('特別時段')) sv='特別時段';
+  else if(note==='配伴奏') sv='配伴奏';
+  else if(note!==''&&note!=='自主練習') sv='other';
+  G('adminWriteNoteSelect').value=sv;
+  toggle('adminWriteLessonWrap',sv==='主副修課');
+  toggle('adminWriteCoWrap',sv==='共練');
+  toggle('adminWriteSpecialWrap',sv==='特別時段');
+  toggle('adminWriteNoteOtherWrap',sv==='other');
+  if(sv==='主副修課'){const p=note.split('・');G('adminWriteLessonTeacher').value=p[1]||'';G('adminWriteLessonInstrument').value=p[2]||'';}
+  if(sv==='共練'){const p=note.split('・');G('adminWriteCoName').value=p[1]||'';}
+  if(sv==='特別時段'){const p=note.split('・');G('adminWriteSpecialTeacher').value=(p[1]||'').replace(/教師$/, '');}
+  if(sv==='other') G('adminWriteNoteOther').value=note;
+  hide('adminWriteErr');
+  openModal('adminWriteModal');
+}
+G('adminWriteNoteSelect').addEventListener('change',function(){
+  toggle('adminWriteLessonWrap',this.value==='主副修課');
+  toggle('adminWriteCoWrap',this.value==='共練');
+  toggle('adminWriteSpecialWrap',this.value==='特別時段');
+  toggle('adminWriteNoteOtherWrap',this.value==='other');
+});
+G('confirmAdminWriteBtn').addEventListener('click', async ()=>{
+  const {key,room,time}=pending;
+  const name=V('adminWriteName');
+  if(!name){showMErr('adminWriteErr','請填寫預約人姓名');return;}
+  let note=G('adminWriteNoteSelect').value;
+  if(note==='主副修課'){const t=V('adminWriteLessonTeacher'),ins=V('adminWriteLessonInstrument');if(!t||!ins){showMErr('adminWriteErr','請填寫授課老師與課程樂器');return;}note=`主副修課・${t}・${ins}`;}
+  else if(note==='共練'){const co=V('adminWriteCoName');if(!co){showMErr('adminWriteErr','請填寫共練者姓名');return;}note=`共練・${co}`;}
+  else if(note==='特別時段'){const sp=V('adminWriteSpecialTeacher');if(!sp){showMErr('adminWriteErr','請填寫教師姓名');return;}note=`特別時段・${sp}教師`;}
+  else if(note==='other'){note=V('adminWriteNoteOther');if(!note){showMErr('adminWriteErr','請填寫備注內容');return;}}
+  const ds=G('viewDate').value;
+  if(!sysData[ds])sysData[ds]={};
+  if(!sysData[ds][room])sysData[ds][room]={};
+  const utype=users[name]?.type||'student';
+  // 保存原固定排課資訊（供 Feature 2 紅色顯示）
+  const adDowKey=String(new Date(ds+'T00:00:00').getDay());
+  const adDateSlot=sysData[ds][room][time];
+  const adWeekSlot=sysData[adDowKey]?.[room]?.[time];
+  const adOrig = adDateSlot?.type==='fixed' ? (adDateSlot.teacher||adDateSlot.note||'') :
+                 adWeekSlot?.type==='fixed'  ? (adWeekSlot.teacher||adWeekSlot.note||'') : null;
+  const slotVal={name,note,type:'book',userType:utype};
+  if(adOrig) slotVal.origFixed=adOrig;
+  sysData[ds][room][time]=slotVal;
+  lss('jj_data',sysData);
+  // 精準寫入單一時段，不覆蓋整棵 sysData
+  if(fbMode) await FB.set(`sysData/${ds}/${room}/${time}`, slotVal);
+  addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 代填預約 ${room} ${ds} ${time}（${name}・${note}）`,cancellable:false});
+  closeModals();updateBoard();refreshAdminLog();
+  toast(`✅ 已代填：${name} · ${room} · ${time}`,'s');
+});
+
+// ═══════════════════════════════════
+// EDIT FIXED SLOT (管理員修改固定排課)
+// ═══════════════════════════════════
+function openEditFixedModal(key,room,time,fixedD){
+  if(!isAdmin) return;
+  pending={key:String(key),room,time};
+  const dl=/^\d$/.test(String(key))?`每週固定（週${DAYS[+key]}）`:key;
+  G('editFixedInfo').innerHTML=`
+    <div class="ir"><span class="ila">琴房</span><span class="ilv ac">${esc(room)}</span></div>
+    <div class="ir"><span class="ila">日期/星期</span><span class="ilv">${esc(dl)} ${time}</span></div>
+    <div class="ir"><span class="ila">目前主題</span><span class="ilv">${esc(fixedD.teacher||fixedD.note||'—')}</span></div>`;
+  const raw=fixedD.teacher||fixedD.note||'';
+  const parts=raw.split('・');
+  G('editFixedTeacher').value=parts[0]||'';
+  G('editFixedRemark').value=parts.slice(1).join('・')||fixedD.remark||'';
+  hide('editFixedErr');
+  openModal('editFixedModal');
+}
+G('confirmEditFixedBtn').addEventListener('click', async ()=>{
+  const {key,room,time}=pending;
+  const d=sysData[key]?.[room]?.[time];
+  if(!d){closeModals();return;}
+  const teacher=V('editFixedTeacher');
+  if(!teacher){showMErr('editFixedErr','請填寫主題');return;}
+  const remark=V('editFixedRemark');
+  const label=teacher+(remark?'・'+remark:'');
+  d.teacher=label; d.remark=remark||'';
+  lss('jj_data',sysData);
+  // 只更新 teacher/remark 欄位，不覆蓋整棵 sysData
+  if(fbMode) await FB.update(`sysData/${key}/${room}/${time}`,{teacher:label,remark:remark||''});
+  addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員] 修改固定排課 ${room} ${key} ${time} → ${label}`,cancellable:false});
+  closeModals();updateBoard();refreshAdminLog();
+  toast('固定排課已修改','s');
+});
+
+// ═══════════════════════════════════
+// SCHEDULE SETTINGS
+// ═══════════════════════════════════
+function setMode(m){
+  curMode=m; QA('.mbtbtn').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));
+  G('schedLabel').textContent=m==='fixed'?'排課主題 / 對象':'封鎖事由';
+  show('schedDateRange');
+  G('schedDateRangeLabel').textContent=m==='fixed'?'指定日期範圍（留空=永久每週套用）':'指定日期範圍（留空=未來8週）';
+}
+
+G('saveSettingBtn').addEventListener('click', async ()=>{
+  const rms=QA('input[name="adminRoom"]:checked').map(e=>e.value);
+  const tms=QA('input[name="adminTime"]:checked').map(e=>e.value);
+  const dys=QA('input[name="adminDay"]:checked').map(e=>+e.value);
+  const tc=V('setTeacher'), remark=V('setRemark');
+  if(!tc){ toast('請填寫主題','e'); return; }
+  if(!rms.length||!tms.length||!dys.length){ toast('請選擇琴房、星期、時段','e'); return; }
+  const label=tc+(remark?'・'+remark:'');
+  const fv=V('lockFrom'), tv=V('lockTo');
+  if(curMode==='fixed'){
+    if(fv&&tv){
+      // 指定日期範圍：寫入具體日期 key（type:'fixed'）
+      let dates=[]; let c=new Date(fv+'T00:00:00');
+      const e=new Date(tv+'T00:00:00');
+      while(c<=e){ if(dys.includes(c.getDay())) dates.push(dateStr(c)); c.setDate(c.getDate()+1); }
+      if(!dates.length){ toast('沒有符合條件的日期','e'); return; }
+      dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; rms.forEach(r=>{ if(!sysData[ds][r]) sysData[ds][r]={}; tms.forEach(t=>{ sysData[ds][r][t]={teacher:label,remark,type:'fixed'}; }); }); });
+      addLog({t:new Date().toLocaleString('zh-TW'),msg:`固定排課(日期範圍): ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
+      toast(`固定排課已套用（${dates.length}天）`,'s');
+    } else {
+      // 留空：寫入 dow key（0~6），永久每週套用
+      dys.forEach(d=>{ const k=String(d); if(!sysData[k]) sysData[k]={}; rms.forEach(r=>{ if(!sysData[k][r]) sysData[k][r]={}; tms.forEach(t=>{ sysData[k][r][t]={teacher:label,remark,type:'fixed'}; }); }); });
+      addLog({t:new Date().toLocaleString('zh-TW'),msg:`固定排課(永久): ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段`,cancellable:false});
+      toast('固定排課已套用（永久每週）','s');
+    }
+  } else {
+    let dates=[];
+    if(fv&&tv){ let c=new Date(fv+'T00:00:00');
+    const e=new Date(tv+'T00:00:00'); while(c<=e){ if(dys.includes(c.getDay())) dates.push(dateStr(c)); c.setDate(c.getDate()+1); } }
+    else { for(let i=0;i<56;i++){ const d2=new Date(); d2.setDate(d2.getDate()+i);
+    if(dys.includes(d2.getDay())) dates.push(dateStr(d2)); } }
+    if(!dates.length){ toast('沒有符合條件的日期','e'); return; }
+    dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; rms.forEach(r=>{ if(!sysData[ds][r]) sysData[ds][r]={}; tms.forEach(t=>{ sysData[ds][r][t]={note:label,remark,type:'lock'}; }); }); });
+    addLog({t:new Date().toLocaleString('zh-TW'),msg:`封鎖: ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
+    toast(`封鎖已套用（${dates.length}天）`,'s');
+  }
+  await saveData(); updateBoard(); refreshAdminLog();
+});
+// ═══════════════════════════════════
+// MEMBERS
+// ═══════════════════════════════════
+G('newMemberType').addEventListener('change',function(){
+  G('newMemberClassWrap').style.display=this.value==='student'?'flex':'none';
+});
+G('addClassBtn').addEventListener('click',()=>{
+  const n=V('newClassName'); if(!n){ toast('請輸入班級名稱','e'); return; }
+  if(classes.includes(n)){ toast('班級已存在','e'); return; }
+  classes.push(n); saveClasses(); refreshUserList(); G('newClassName').value='';
+  toast(`班級「${n}」已新增`,'s');
+});
+G('addMemberBtn').addEventListener('click',()=>{
+  const name=V('newMemberName'), type=G('newMemberType').value;
+  const cls=type==='student'?G('newMemberClass').value:'';
+  if(!name){ toast('請輸入姓名','e'); return; }
+  if(users[name]){ toast('此帳號已存在','e'); return; }
+  users[name]={pwd:'000',type,class:cls||''}; saveUsers(); refreshUserList(); G('newMemberName').value='';
+  toast(`已新增 ${name}（${{admin:'管理員',teacher:'教師',student:'學生'}[type]}${cls?'・'+cls:''}）`,'s');
+});
+G('importBtn').addEventListener('click',()=>{
+  const lines=V('importList').split('\n').map(l=>l.trim()).filter(Boolean);
+  const type=G('importType').value;
+  const cls=type==='student'?G('importClass').value:'';
+  let count=0;
+  lines.forEach(n=>{ if(n&&!users[n]){ users[n]={pwd:'000',type,class:cls||''}; count++; } });
+  saveUsers(); refreshUserList(); G('importList').value=''; toast(`匯入完成：新增 ${count} 位成員`,'s');
+});
+function refreshClassSelects(){
+  // Rebuild all class dropdowns
+  const opts = classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  ['newMemberClass','importClass'].forEach(id=>{ const el=G(id); if(el) el.innerHTML=opts; });
+}
+
+function renderClassTags(){
+  const el=G('classTagList'); if(!el) return;
+  el.innerHTML=classes.map((c,i)=>`
+    <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(212,175,55,.12);border:1px solid rgba(212,175,55,.3);border-radius:20px;padding:3px 10px;font-size:.72rem;color:var(--gold2)">
+      <span>${esc(c)}</span>
+      ${c!=='未分班'?`<button data-eclass="${esc(c)}" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:.85rem;line-height:1;padding:0 4px" title="修改名稱">✏️</button>`:''}
+      ${c!=='未分班'?`<button data-dclass="${esc(c)}" style="background:none;border:none;color:var(--red2);cursor:pointer;font-size:.85rem;line-height:1;padding:0 0 0 2px" title="刪除班級">✕</button>`:''}
+    </div>`).join('');
+}
+
+function refreshUserList(){
+  const lbl={admin:'管理員',teacher:'教師',student:'學生'};
+  const groups={admin:[],teacher:{}};
+  // Group students by class
+  // ensure admin/teacher arrays exist
+  const adminList=[], teacherList=[];
+  const studentByClass={};
+  classes.forEach(c=>{ studentByClass[c]=[]; });
+  studentByClass['未分班']=studentByClass['未分班']||[];
+  Object.keys(users).forEach(u=>{
+    const t=users[u].type||'student';
+    if(t==='admin') adminList.push(u);
+    else if(t==='teacher') teacherList.push(u);
+    else {
+      const cls=users[u].class||'未分班';
+      if(!studentByClass[cls]) studentByClass[cls]=[];
+      studentByClass[cls].push(u);
+    }
+  });
+  function memberRow(u, isStudent=false){
+    return `<div class="mi" data-user="${esc(u)}">
+      <div style="display:flex;align-items:center;gap:6px">
+        ${isStudent?`<input type="checkbox" class="member-chk" data-un="${esc(u)}" style="accent-color:var(--gold);width:14px;height:14px">`:''}
+        <span style="font-size:.75rem">${esc(u)}</span>
+      </div>
+      <div class="flex gap6">
+        ${isStudent?`<select class="fs" data-ua="chgclass" data-un="${esc(u)}" style="font-size:.66rem;padding:2px 5px;height:auto;max-width:90px">${classes.map(c=>`<option value="${esc(c)}"${(users[u].class||'未分班')===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:''}
+        <button class="btn bgh bsm" data-ua="reset" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">重置密碼</button>
+        ${u!==ADMIN_NAME?`<button class="btn br bsm" data-ua="del" data-un="${esc(u)}" style="font-size:.65rem;padding:3px 7px">刪除</button>`:''}
+    
+      </div>
+    </div>`;
+  }
+
+  // Admin
+  const aEl=G('listAdmin');
+  if(aEl) aEl.innerHTML=adminList.length?adminList.map(u=>memberRow(u,false)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無管理員</div>`;
+  const aC=G('adminCount'); if(aC) aC.textContent=adminList.length;
+
+  // Teacher
+  const tEl=G('listTeacher');
+  if(tEl) tEl.innerHTML=teacherList.length?teacherList.map(u=>memberRow(u,false)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">無教師</div>`;
+  const tC=G('teacherCount'); if(tC) tC.textContent=teacherList.length;
+  // Students by class
+  const scg=G('studentClassGroups'); if(!scg) return;
+  const totalStudents=Object.values(studentByClass).reduce((s,a)=>s+a.length,0);
+  scg.innerHTML=classes.map(cls=>{
+    const arr=studentByClass[cls]||[];
+    return `<details open style="background:var(--bg4);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:8px">
+      <summary style="padding:8px 12px;cursor:pointer;font-size:.75rem;color:var(--blue2);font-weight:500;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>▼ 學生 · ${esc(cls)}</span>
+          <span class="mbadge mbs" style="font-size:.6rem">${arr.length}</span>
+        </div>
+        <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+          <button class="btn bgh bsm" data-cls-selall="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">全選</button>
+         
+          <button class="btn br bsm" data-cls-delsel="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">刪除已選</button>
+        </div>
+      </summary>
+      <div class="slist" style="max-height:220px;border:none;border-radius:0;border-top:1px solid var(--bd)">
+        ${arr.length?arr.map(u=>memberRow(u,true)).join(''):`<div class="li txm" style="justify-content:center;padding:12px;font-size:.72rem">此班級無學生</div>`}
+      </div>
+    </details>`;
+  }).join('');
+
+  // Also refresh class selects
+  refreshClassSelects();
+  renderClassTags();
+}
+
+// Event delegation for member actions across all lists
+document.addEventListener('click',ev=>{
+  // member reset/del
+  const btn=ev.target.closest('[data-ua]');
+  if(btn && (G('listAdmin')?.contains(btn)||G('listTeacher')?.contains(btn)||G('studentClassGroups')?.contains(btn))){
+    const u=btn.dataset.un, a=btn.dataset.ua;
+    if(a==='reset'){ users[u].pwd='000'; saveUsers(); toast(`${u} 密碼已重置為 000`,'s'); }
+    if(a==='del') showConfirm(`確定刪除成員「${u}」？`,'',()=>{ delete users[u]; saveUsers(); refreshUserList(); toast('成員已刪除','i'); });
+    return;
+  }
+  // select all in class
+  const sa=ev.target.closest('[data-cls-selall]');
+  if(sa){
+    const cls=sa.dataset.clsSelall;
+    const details=sa.closest('details');
+    if(details) details.querySelectorAll('.member-chk').forEach(c=>c.checked=true);
+    return;
+  }
+  // delete selected in class
+ 
+  const ds=ev.target.closest('[data-cls-delsel]');
+  if(ds){
+    const cls=ds.dataset.clsDelsel;
+    const details=ds.closest('details');
+    if(!details) return;
+    const selected=[...details.querySelectorAll('.member-chk:checked')].map(c=>c.dataset.un).filter(u=>u!==ADMIN_NAME);
+    if(!selected.length){ toast('請先勾選要刪除的成員','e'); return; }
+    showConfirm(`確定刪除 ${selected.length} 位成員？`,`班級：${cls}，此操作無法復原`,()=>{
+      selected.forEach(u=>{ delete users[u]; });
+      saveUsers(); refreshUserList(); toast(`已刪除 ${selected.length} 位成員`,'i');
+    });
+    return;
+  }
+  // delete class tag
+  const dc=ev.target.closest('[data-dclass]');
+  if(dc){
+    const cls=dc.dataset.dclass;
+    const studentsInClass=Object.keys(users).filter(u=>users[u].type==='student'&&(users[u].class||'未分班')===cls);
+    const sub=studentsInClass.length?`班級內有 ${studentsInClass.length} 位學生將移至「未分班」`:'此班級目前無學生';
+    showConfirm(`確定刪除班級「${cls}」？`,sub,()=>{
+      studentsInClass.forEach(u=>{ users[u].class='未分班'; });
+      classes=classes.filter(c=>c!==cls);
+      saveClasses(); saveUsers(); refreshUserList(); toast(`班級「${cls}」已刪除`,'i');
+    });
+    return;
+  }
+});
+
+// 換班 change handler
+document.addEventListener('change',ev=>{
+  const sel=ev.target.closest('[data-ua="chgclass"]'); if(!sel) return;
+  const u=sel.dataset.un; if(!u||!users[u]) return;
+  const newCls=sel.value;
+  users[u].class=newCls; saveUsers(); refreshUserList(); toast(`${u} 已移至「${newCls}」`,'s');
+});
+// ═══════════════════════════════════
+// LOG
+// ═══════════════════════════════════
+let curLogTab = 'student';
+
+function logCategory(l){
+  if(!l||!l.msg) return 'fixed';
+  const msg = l.msg;
+  // admin write / cancel are student/teacher entries
+  if(l.cancellable){
+    const utype = l.bookerType || users[l.booker]?.type || 'student';
+    return (utype==='teacher'||utype==='admin') ? 'teacher' : 'student';
+  }
+  if(msg.startsWith('[管理員') && msg.includes('代填')) {
+    // detect user type from name inside msg
+    const m = msg.match(/代填預約[^（]*（([^・）]+)/);
+    const name = m ? m[1].trim() : '';
+    const utype = users[name]?.type || 'student';
+    return (utype==='teacher'||utype==='admin') ? 'teacher' : 'student';
+  }
+  return 'fixed';
+}
+
+function fmtLogTime(t){
+  // t is already toLocaleString('zh-TW'), ensure it has dow
+  if(!t) return '';
+  // try to parse and add dow if missing
+  try {
+    const d = new Date(t.replace(/\//g,'-').replace(/上午|下午/g,'').trim());
+    if(!isNaN(d)){
+      const dow = ['日','一','二','三','四','五','六'][d.getDay()];
+      // check if already has 週X
+      if(!/週[日一二三四五六]/.test(t)){
+        const parts = t.split(' ');
+        return parts[0]+'（週'+dow+'）'+(parts.slice(1).join(' ')||'');
+      }
+    }
+  } catch(e){}
+  return t;
+}
+
+function renderLogPanel(category){
+  const listId = 'adminLogList-'+category;
+  const el = G(listId); if(!el) return;
+  const filtered = logs.slice(0,300).map((l,i)=>({l,i})).filter(({l})=>logCategory(l)===category);
+  if(!filtered.length){ el.innerHTML='<div class="li txm" style="justify-content:center;padding:16px">尚無記錄</div>'; return; }
+  const clone=el.cloneNode(false);
+  el.parentNode.replaceChild(clone,el);
+  const nel=G(listId);
+  nel.innerHTML=filtered.map(({l,i})=>{
+    if(!l) return '';
+    const bookExists=l.cancellable&&l.bookKey&&sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
+    const tDisplay = fmtLogTime(l.t||'');
+    return `<div class="li" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px">
+      <div style="color:var(--tx);font-size:.76rem;line-height:1.4">${esc(l.msg)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+        <span class="txs txm">${tDisplay}</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          ${bookExists?`<button class="lcb" data-la="edit" data-li="${i}" style="font-size:.65rem;background:rgba(28,111,214,.15);color:var(--blue2);border-color:rgba(28,111,214,.3)">✏ 修改預約</button>`:''}
+          ${bookExists?`<button class="lcb" data-la="cancel" data-li="${i}" style="font-size:.65rem">✕ 刪除預約</button>`:''}
+          <button class="lcb" data-la="del" data-li="${i}" style="font-size:.65rem;background:rgba(100,100,100,.12);color:var(--tx3);border-color:var(--bd2)">🗑 刪除記錄</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  nel.addEventListener('click',ev=>{
+    const btn=ev.target.closest('[data-la]'); if(!btn) return;
+    const i=+btn.dataset.li, la=btn.dataset.la;
+    const l=logs[i]; if(!l) return;
+    if(la==='del'){
+      const bookExists=l.cancellable&&l.bookKey&&sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
+      const msg=bookExists?`確定刪除此日誌並同時取消 ${l.bookRoom} 的預約？`:'確定刪除此筆日誌記錄？';
+      const sub=bookExists?'預約將從看板移除，不會通知預約者。':'此操作無法復原';
+      showConfirm(msg, sub, async ()=>{
+        if(bookExists){ delete sysData[l.bookKey][l.bookRoom][l.bookTime]; lss('jj_data',sysData); if(fbMode) await FB.remove(`sysData/${l.bookKey}/${l.bookRoom}/${l.bookTime}`); updateBoard(); }
+        logs.splice(i,1); saveLogs(); refreshAdminLog(); updateCleanupStatus();
+        toast(bookExists?'預約及日誌已刪除':'日誌已刪除','i');
+      });
+      return;
+    }
+    if(la==='cancel'){
+      const d=sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime]; if(!d) return;
+      showConfirm(`確定取消 ${d.name} 在 ${l.bookRoom} ${l.bookKey} ${l.bookTime} 的預約？`, '將通知預約者', ()=>{
+        const reason='管理員由日誌取消';
+        pushNotif(d.name,l.bookRoom,l.bookKey,l.bookTime,d.note,reason);
+        doDelete(l.bookKey,l.bookRoom,l.bookTime,`[管理員 ${curUser}] 取消 ${d.name} 的預約（由日誌操作）`);
+        toast('已取消並通知當事人','s');
+      });
+      return;
+    }
+    if(la==='edit'){
+      const d=sysData[l.bookKey]?.[l.bookRoom]?.[l.bookTime];
+      if(!d) return;
+      openEditBookModal(l.bookKey,l.bookRoom,l.bookTime,d);
+      return;
+    }
+  });
+}
+
+function refreshAdminLog(){
+  ['student','teacher','fixed'].forEach(cat => renderLogPanel(cat));
+}
+
+// Log tab switching
+document.addEventListener('click', ev => {
+  const tb = ev.target.closest('.log-tab-btn');
+  if(!tb) return;
+  const tab = tb.dataset.logtab;
+  curLogTab = tab;
+  document.querySelectorAll('.log-tab-btn').forEach(b=>{
+    const active = b.dataset.logtab === tab;
+    b.style.borderBottomColor = active ? (tab==='student'?'var(--blue2)':tab==='teacher'?'var(--pur2)':'var(--gold2)') : 'transparent';
+    b.style.color = active ? (tab==='student'?'var(--blue2)':tab==='teacher'?'var(--pur2)':'var(--gold2)') : 'var(--tx3)';
+    b.style.fontWeight = active ? '600' : 'normal';
+  });
+  document.querySelectorAll('.log-panel').forEach(p => p.style.display='none');
+  const panel = G('logPanel-'+tab); if(panel) panel.style.display='block';
+});
+
+// ═══════════════════════════════════
+// CSV
+// ═══════════════════════════════════
+G('importCsvBtn').addEventListener('click', async ()=>{
+  const raw=V('csvImportText'); if(!raw){ toast('請貼入CSV內容','e'); return; }
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));
+  let ok=0,skip=0,errs=[];
+  lines.forEach((line,i)=>{
+    const p=line.split(',').map(s=>s.trim());
+    // Support both formats:
+    // NEW: type,room,dow,start,end,label,remark,dateFrom,dateTo
+    // OLD (backward compat): room,dow,start,end,label,remark,dateFrom,dateTo
+    let type='fixed', room, dowStr, startT, endT, teacher, remark, dateFrom, dateTo;
+    if(p[0]==='fixed'||p[0]==='lock'){
+      [type,room,dowStr,startT,endT,teacher,remark,dateFrom,dateTo]=p;
+    } else {
+      // old format without type → treat as fixed
+      
+      [room,dowStr,startT,endT,teacher,remark,dateFrom,dateTo]=p;
+      type='fixed';
+    }
+    if(!room||!dowStr||!startT||!endT||!teacher){ errs.push(`第${i+1}行欄位不完整`); skip++; return;
+    }
+    const dow=DOW_MAP[dowStr];
+    if(dow===undefined){ errs.push(`第${i+1}行星期「${dowStr}」無法辨識`); skip++; return; }
+    const slots=genSlots(startT,endT);
+    if(!slots.length){ errs.push(`第${i+1}行時段無效（${startT}~${endT}）`); skip++; return;
+    }
+    const label=teacher+(remark?'・'+remark:'');
+
+    if(type==='lock'){
+      // Lock: always store under date keys (requires date range, or defaults to next 8 weeks)
+      let dates=[];
+      if(dateFrom&&dateTo){
+        let cur=new Date(dateFrom+'T00:00:00'); const end=new Date(dateTo+'T00:00:00');
+        if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return;
+        }
+        while(cur<=end){ if(cur.getDay()===dow) dates.push(dateStr(cur)); cur.setDate(cur.getDate()+1);
+        }
+      } else {
+        // No date range: apply to next 8 weeks
+        for(let j=0;j<56;j++){ const d2=new Date();
+        d2.setDate(d2.getDate()+j); if(d2.getDay()===dow) dates.push(dateStr(d2)); }
+      }
+      dates.forEach(ds=>{ if(!sysData[ds]) sysData[ds]={}; if(!sysData[ds][room]) sysData[ds][room]={}; slots.forEach(t=>{ sysData[ds][room][t]={note:label,remark:remark||'',type:'lock'}; }); });
+    } else {
+      // Fixed
+      if(!dateFrom||!dateTo){
+        const k=String(dow);
+        if(!sysData[k]) sysData[k]={}; if(!sysData[k][room]) sysData[k][room]={};
+        slots.forEach(t=>{ sysData[k][room][t]={teacher:label,remark:remark||'',type:'fixed'}; });
+      } else {
+        let cur=new Date(dateFrom+'T00:00:00');
+        const end=new Date(dateTo+'T00:00:00');
+        if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return; }
+        while(cur<=end){ if(cur.getDay()===dow){ const ds=dateStr(cur);
+        if(!sysData[ds]) sysData[ds]={}; if(!sysData[ds][room]) sysData[ds][room]={}; slots.forEach(t=>{ sysData[ds][room][t]={teacher:label,remark:remark||'',type:'fixed'}; }); } cur.setDate(cur.getDate()+1); }
+      }
+    }
+    ok++;
+  });
+  await saveData(); updateBoard();
+  const msg=`匯入：${ok}筆成功${skip?`，${skip}筆跳過`:''}`;
+  G('csvResult').textContent=errs.length?msg+'（'+errs.slice(0,2).join('；')+'）':msg;
+  ok>0?toast(msg,'s'):toast('沒有成功匯入任何資料','e');
+});
+G('clearFixedBtn').addEventListener('click',()=>{
+  showConfirm('確定清除所有固定排課資料？','此操作無法復原', async ()=>{
+    // 清除 DOW keys (0-6) 中的固定排課
+    ['0','1','2','3','4','5','6'].forEach(k=>{ if(sysData[k]) delete sysData[k]; });
+    // 清除日期 keys 中 type==='fixed' 的條目（CSV 匯入含日期範圍的固定排課）
+    Object.keys(sysData).forEach(k=>{
+      if(/^\d$/.test(k)) return; // DOW keys 已在上方清除，跳過
+      if(typeof sysData[k]==='object'){
+        Object.keys(sysData[k]).forEach(room=>{
+          Object.keys(sysData[k][room]||{}).forEach(t=>{
+            if(sysData[k][room][t]?.type==='fixed') delete sysData[k][room][t];
+          });
+          // 清空的琴房物件也刪除
+          if(Object.keys(sysData[k][room]||{}).length===0) delete sysData[k][room];
+        });
+        // 清空的日期物件也刪除
+        if(Object.keys(sysData[k]||{}).length===0) delete sysData[k];
+      }
+    });
+    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
+  });
+});
+G('clearLockBtn').addEventListener('click',()=>{
+  showConfirm('確定清除所有封鎖時段？','此操作無法復原', async ()=>{
+    Object.keys(sysData).forEach(k=>{
+      if(/^\d$/.test(k)) return; // skip dow keys
+      if(typeof sysData[k]==='object') Object.keys(sysData[k]).forEach(room=>{
+        Object.keys(sysData[k][room]||{}).forEach(t=>{ if(sysData[k][room][t]?.type==='lock') delete sysData[k][room][t]; });
+      });
+    });
+    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
+  });
+});
+G('dlTemplateBtn').addEventListener('click',()=>{
+  const tpl=[
+    '# 固定課表 & 封鎖時段 CSV 模板',
+    '# 格式：類型(fixed/lock),琴房,星期,開始HH:MM,結束HH:MM,說明,備注(可空),起始日(可空YYYY-MM-DD),結束日(可空)',
+    '# fixed=固定排課（可被預約）  lock=封鎖時段（不可預約）',
+    '# 星期用：一二三四五。日期留空=每週不限期（fixed）或未來8週（lock）。',
+    '# ── 固定排課範例 ──',
+    'fixed,101-A,一,08:00,09:00,王老師,鋼琴課,2025-09-01,2026-01-17',
+    'fixed,101-A,三,10:00,11:00,李老師,,',
+    'fixed,102-B,二,09:00,10:30,陳老師,小提琴,2025-09-01,2026-01-17',
+    '# ── 封鎖時段範例 ──',
+    'lock,演奏廳,五,12:00,14:00,清潔維護,,2025-10-01,2026-01-31',
+    'lock,105擊樂教室,一,08:00,12:00,場地借用,,2025-11-04,2025-11-04',
+  ].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+tpl);
+  a.download='琴房課表模板.csv'; a.click();
+});
+// ═══════════════════════════════════
+// PAGE SWITCH
+// ═══════════════════════════════════
+function showPage(p){
+  const isB=p==='board'; const isA=p==='admin';
+  G('boardPage').classList.toggle('active',isB); G('adminPage').classList.toggle('active',isA);
+  G('navBoard').classList.toggle('active',isB); G('navAdmin').classList.toggle('active',isA);
+  if(isB) updateBoard();
+  if(isA&&isAdmin) initAdminUI();
+}
+
+// ═══════════════════════════════════
+// WIRE UP BUTTONS
+// ═══════════════════════════════════
+G('loginBtn').addEventListener('click',doLogin);
+G('loginPwd').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+G('navLoginBtn').addEventListener('click',openLoginModal);
+G('navBoard').addEventListener('click',()=>showPage('board'));
+G('navAdmin').addEventListener('click',()=>showPage('admin'));
+G('logoutBtn').addEventListener('click',doLogout);
+G('viewDate').addEventListener('change',updateBoard);
+G('btnToday').addEventListener('click',()=>{ G('viewDate').value=todayStr(); autoSetBoardView(); updateBoard(); });
+G('btnAM').addEventListener('click',()=>{ boardView='am'; G('btnAM').className='btn bg bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bgh bsm'; G('viewRangeLabel').textContent='08:00–13:00'; updateBoard(); });
+G('btnPM').addEventListener('click',()=>{ boardView='pm'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bg bsm'; G('btnEV').className='btn bgh bsm'; G('viewRangeLabel').textContent='13:00–17:30'; updateBoard(); });
+G('btnEV').addEventListener('click',()=>{ boardView='ev'; G('btnAM').className='btn bgh bsm'; G('btnPM').className='btn bgh bsm'; G('btnEV').className='btn bg bsm'; G('viewRangeLabel').textContent='17:30–21:30'; updateBoard(); });
+G('addRoomBtn').addEventListener('click',()=>{
+  const n=V('newRoomName'); if(!n){ toast('請輸入琴房名稱','e'); return; }
+  if(rooms.includes(n)){ toast('名稱已存在','e'); return; }
+  rooms.push(n); saveRooms(); G('newRoomName').value=''; refreshRoomGrid(); renderRoomSortList(); toast(`已新增 ${n}`,'s');
+});
+G('dismissNotifBtn').addEventListener('click',()=>{ notifs[curUser]=[]; saveNotifs(); closeModals(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModals(); });
+
+// Cleanup buttons (admin only)
+document.addEventListener('click',ev=>{
+  if(ev.target.id==='clearLogsBtn'){
+    showConfirm('確定清空所有日誌？','此操作無法復原',()=>{ logs=[]; saveLogs(); refreshAdminLog(); updateCleanupStatus(); toast('日誌已清空','i'); });
+  }
+  if(ev.target.id==='manualCleanupBtn'){
+    runRollingCleanup(true); updateBoard(); refreshAdminLog(); updateCleanupStatus(); toast('已執行資料清理','s');
+  }
+});
+function updateCleanupStatus(){
+  const el=G('cleanupStatus'); if(!el) return;
+  const logCount=logs.length;
+  const dateKeys=Object.keys(sysData).filter(k=>!/^\d$/.test(k));
+  const now=new Date(); const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-CLEANUP_KEEP_DAYS_DATA);
+  const oldKeys=dateKeys.filter(k=>k<dateStr(cutoff));
+  el.textContent=`日誌 ${logCount} 筆 | 日期資料 ${dateKeys.length} 天 | 過期 ${oldKeys.length} 天待清理`;
+}
+
+function loadRulesNotice(){
+  const rules=ls('jj_rules')||'';
+  const el=G('rulesNotice');
+  if(rules&&rules.trim()){
+    G('rulesText').textContent=rules;
+    el.classList.remove('hidden');
+    el.style.display='flex';
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+async function saveRules(){ lss('jj_rules',G('adminRulesText').value);
+  if(fbMode) await FB.set('rules',G('adminRulesText').value); }
+
+// ═══════════════════════════════════
+// BOOT
+// ═══════════════════════════════════
+async function appBoot(){
+  if(fbMode) await loadFromFirebase();
+  const td=todayStr();
+  G('viewDate').value=td;
+  // 移除 min 限制，讓所有人都可查看過去日期（過去時段會顯示為 past 狀態）
+  // G('viewDate').min=td;  // 不再限制最小日期
+  // ── 依目前時間自動切換至對應時段 ──
+  autoSetBoardView();
+  rebuildHeader();
+  updateBoard();
+  loadRulesNotice();
+  restoreSession();
+  scheduleCleanup();
+}
+
+// ═══════════════════════════════════
+// QUERY BOOKING (查詢預約狀況)
+// ═══════════════════════════════════
+let queryResults = [];   // 全部查詢結果
+let queryTab = 'all';    // 目前分頁
+
+function openQueryModal(prefillName=''){
+  // 重設
+  queryResults = [];
+  queryTab = 'all';
+  G('queryResultList').innerHTML = '<div class="qno-result">請輸入姓名後點擊查詢</div>';
+  G('queryStatRow').classList.add('hidden');
+  G('queryTabBar').classList.add('hidden');
+  G('queryTotalLabel').textContent = '';
+  // 預填名稱
+  G('queryName').value = prefillName || (curUser || '');
+  // datalist：管理員顯示所有人，一般人顯示所有人（預約看板本為公開資訊）
+  G('queryNameList').innerHTML = Object.keys(users).map(u=>`<option value="${esc(u)}">`).join('');
+  // 日期範圍預設：14 天前 ~ 30 天後
+  const past14 = new Date(); past14.setDate(past14.getDate()-14);
+  const next30 = new Date(); next30.setDate(next30.getDate()+30);
+  G('queryFrom').value = dateStr(past14);
+  G('queryTo').value   = dateStr(next30);
+  // 重置 tab 樣式
+  QA('.qtab').forEach(b=>b.classList.toggle('active', b.dataset.qtab==='all'));
+  openModal('queryModal');
+  // 若有預填姓名，自動執行查詢
+  if(prefillName) setTimeout(doQuery, 80);
+}
+
+function doQuery(){
+  const name = G('queryName').value.trim();
+  if(!name){ toast('請輸入姓名','e'); return; }
+  const fromD = G('queryFrom').value;
+  const toD   = G('queryTo').value;
+  const today = todayStr();
+
+  queryResults = [];
+
+  Object.keys(sysData).forEach(dateKey=>{
+    // 只處理日期型 key（非 DOW 0-6）
+    if(/^\d$/.test(dateKey)) return;
+    if(fromD && dateKey < fromD) return;
+    if(toD   && dateKey > toD)   return;
+    const dateData = sysData[dateKey];
+    if(!dateData) return;
+    Object.keys(dateData).forEach(room=>{
+      const roomData = dateData[room];
+      if(!roomData) return;
+      Object.keys(roomData).forEach(time=>{
+        const entry = roomData[time];
+        if(!entry || entry.type !== 'book') return;
+        if(entry.name !== name) return;
+        let status, badgeCls;
+        if(dateKey < today)       { status='已過去'; badgeCls='qb-past'; }
+        else if(dateKey === today) { status='今日';   badgeCls='qb-today'; }
+        else                       { status='待使用'; badgeCls='qb-future'; }
+        const dow = new Date(dateKey+'T00:00:00').getDay();
+        queryResults.push({ dateKey, dow, room, time, note: entry.note||'—', status, badgeCls });
+      });
+    });
+  });
+
+  // 依日期、時段排序
+  queryResults.sort((a,b)=> a.dateKey.localeCompare(b.dateKey)||a.time.localeCompare(b.time));
+
+  // 統計
+  const total   = queryResults.length;
+  const past    = queryResults.filter(r=>r.status==='已過去').length;
+  const todayCt = queryResults.filter(r=>r.status==='今日').length;
+  const future  = queryResults.filter(r=>r.status==='待使用').length;
+
+  if(total===0){
+    G('queryResultList').innerHTML = '<div class="qno-result">查無預約記錄（此期間內）</div>';
+    G('queryStatRow').classList.add('hidden');
+    G('queryTabBar').classList.add('hidden');
+    G('queryTotalLabel').textContent = `${name} 在此區間無預約`;
+    return;
+  }
+
+  // 顯示統計摘要
+  G('queryStatRow').innerHTML = `
+    <div class="qstat-item"><div class="qstat-dot" style="background:var(--tx3)"></div><span style="color:var(--tx3)">已過去 <b>${past}</b></span></div>
+    <div class="qstat-item"><div class="qstat-dot" style="background:var(--gold2)"></div><span style="color:var(--gold2)">今日 <b>${todayCt}</b></span></div>
+    <div class="qstat-item"><div class="qstat-dot" style="background:var(--grn2)"></div><span style="color:var(--grn2)">待使用 <b>${future}</b></span></div>`;
+  G('queryStatRow').classList.remove('hidden');
+  G('queryTabBar').classList.remove('hidden');
+  G('queryTotalLabel').textContent = `共 ${total} 筆 · ${name}`;
+
+  renderQueryList();
+}
+
+function renderQueryList(){
+  const filter = queryTab;
+  let list = queryResults;
+  if(filter==='future') list = queryResults.filter(r=>r.status!=='已過去');
+  if(filter==='past')   list = queryResults.filter(r=>r.status==='已過去');
+
+  if(!list.length){
+    G('queryResultList').innerHTML = '<div class="qno-result">此分類無資料</div>';
+    return;
+  }
+
+  // 按日期分組
+  const groups = {};
+  list.forEach(r=>{ if(!groups[r.dateKey]) groups[r.dateKey]=[]; groups[r.dateKey].push(r); });
+
+  let html = '';
+  Object.keys(groups).sort().forEach(dateKey=>{
+    const rows = groups[dateKey];
+    const dow  = rows[0].dow;
+    const today = todayStr();
+    const isToday = (dateKey===today);
+    html += `<div style="background:${isToday?'rgba(212,175,55,.06)':'var(--bg2)'};border-bottom:2px solid var(--bd);padding:6px 13px 4px;font-size:.72rem;font-weight:600;color:${isToday?'var(--gold2)':'var(--tx2)'};display:flex;align-items:center;gap:6px">
+      <span>${dateKey}</span><span style="font-weight:400;color:var(--tx3)">週${DAYS[dow]}</span>
+      ${isToday?'<span style="background:var(--gold);color:#fff;border-radius:8px;padding:1px 8px;font-size:.62rem">今日</span>':''}
+    </div>`;
+    rows.forEach(r=>{
+      // 計算是否為今日且時段已過
+      const now = new Date();
+      const [rh,rm] = r.time.split(':').map(Number);
+      const slotPast = (r.dateKey < today) || (isToday && (rh < now.getHours() || (rh===now.getHours()&&rm<=now.getMinutes())));
+      html += `<div class="qri" data-date="${esc(r.dateKey)}">
+        <div class="qri-left">
+          <div class="qri-room">${esc(r.room)} &nbsp;<span style="color:var(--tx3)">·</span>&nbsp; <b style="color:var(--tx)">${esc(r.time)}</b></div>
+          <div class="qri-note">${esc(r.note)}</div>
+        </div>
+        <div class="qri-right">
+          <span class="qbadge ${r.badgeCls}">${r.status}${slotPast&&isToday?' (已過)':''}</span>
+          <span style="font-size:.6rem;color:var(--tx3)">點擊跳至看板</span>
+        </div>
+      </div>`;
+    });
+  });
+
+  G('queryResultList').innerHTML = html;
+
+  // 點擊跳至對應日期
+  G('queryResultList').querySelectorAll('.qri').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const d = el.dataset.date;
+      G('viewDate').value = d;
+      closeModals();
+      // 自動切換到該時段對應的時間欄（上午/下午/放學後）
+      const firstTime = el.querySelector('.qri-room b')?.textContent||'';
+      if(firstTime){
+        const h = parseInt(firstTime.split(':')[0],10);
+        if(h>=17&&(h>17||(firstTime.split(':')[1]||'0')>='30')) boardView='ev';
+        else if(h>=13) boardView='pm';
+        else boardView='am';
+        ['am','pm','ev'].forEach(v=>{
+          const id = v==='am'?'btnAM':v==='pm'?'btnPM':'btnEV';
+          G(id).className='btn '+(boardView===v?'bg':'bgh')+' bsm';
+        });
+        const labels={'am':'08:00–13:00','pm':'13:00–17:30','ev':'17:30–21:30'};
+        G('viewRangeLabel').textContent = labels[boardView];
+      }
+      updateBoard();
+      G('boardPage').scrollIntoView({behavior:'smooth'});
+    });
+  });
+}
+
+// Tab 切換
+document.addEventListener('click',ev=>{
+  const qtb = ev.target.closest('.qtab');
+  if(!qtb||!G('queryModal').style.display||G('queryModal').style.display==='none') return;
+  queryTab = qtb.dataset.qtab;
+  QA('.qtab').forEach(b=>b.classList.toggle('active',b.dataset.qtab===queryTab));
+  renderQueryList();
+});
+
+// 按鈕事件
+G('btnQuery').addEventListener('click',()=>openQueryModal());
+G('btnMyBookings').addEventListener('click',()=>openQueryModal(curUser));
+G('doQueryBtn').addEventListener('click',doQuery);
+G('queryName').addEventListener('keydown',e=>{ if(e.key==='Enter') doQuery(); });
+
+// ═══════════════════════════════════
+// 根據當前時間自動選擇上午／下午／放學後
+function autoSetBoardView(){
+  const now=new Date();
+  const h=now.getHours(), mn=now.getMinutes();
+  const totalMin=h*60+mn;
+  let view,label;
+  // 放學後：17:30 以後；下午：13:00–17:29；上午：其餘
+  if(totalMin>=17*60+30){view='ev';label='17:30–21:30';}
+  else if(totalMin>=13*60){view='pm';label='13:00–17:30';}
+  else{view='am';label='08:00–13:00';}
+  boardView=view;
+  G('btnAM').className='btn '+(view==='am'?'bg':'bgh')+' bsm';
+  G('btnPM').className='btn '+(view==='pm'?'bg':'bgh')+' bsm';
+  G('btnEV').className='btn '+(view==='ev'?'bg':'bgh')+' bsm';
+  G('viewRangeLabel').textContent=label;
+}
+</script>
+</body>
+</html>
