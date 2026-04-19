@@ -766,7 +766,20 @@ if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
 async function saveRooms(){ lss('jj_rooms',rooms); if(fbMode) await FB.set('rooms',rooms); }
 async function saveUsers(){ lss('jj_users',users); if(fbMode) await FB.set('users',users); }
 async function saveClasses(){ lss('jj_classes',classes); if(fbMode) await FB.set('classes',classes); }
-async function saveData(){  lss('jj_data',sysData); if(window.__markLocalSave) window.__markLocalSave(); if(fbMode) await FB.set('sysData',sysData); }
+async function saveData(dateKey){
+  lss('jj_data',sysData);
+  if(window.__markLocalSave) window.__markLocalSave();
+  if(fbMode){
+    if(dateKey && !/^\s*$/.test(dateKey)){
+      // ★ 最佳化：只寫入有異動的那一天，不寫整個 sysData
+      const val = sysData[dateKey] || null;
+      await FB.set(`sysData/${dateKey}`, val);
+    } else {
+      // 沒有指定 dateKey（例如批次匯入固定排課）才整批寫入
+      await FB.set('sysData', sysData);
+    }
+  }
+}
 async function saveLogs(){  lss('jj_logs',logs); if(fbMode) await FB.set('logs',logs.slice(0,200)); }
 async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('notifs',notifs); }
 // ═══════════════════════════════════
@@ -776,8 +789,8 @@ async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('not
 const CLEANUP_KEEP_LOGS     = 150;
 // 保留最新 N 筆日誌
 const CLEANUP_KEEP_DAYS_LOG = 60;    // 保留 60 天內的日誌
-const CLEANUP_KEEP_DAYS_DATA= 30;
-// 清除超過 30 天前的已過期預約資料（保留固定排課 dow keys）
+const CLEANUP_KEEP_DAYS_DATA= 14;
+// 清除超過 14 天前的已過期預約資料（保留固定排課 dow keys）
 const CLEANUP_INTERVAL_MS   = 6*60*60*1000; // 每 6 小時執行一次清理
 
 let lastCleanup = ls('jj_lastCleanup') || 0;
@@ -822,7 +835,7 @@ function runRollingCleanup(force=false){
   const logsCleaned=beforeCount-logs.length;
 
   if(cleaned>0||logsCleaned>0){
-    saveData(); saveLogs();
+    saveData(null); saveLogs();
     console.log(`[AutoCleanup] 清理完成：${cleaned} 筆預約資料，${logsCleaned} 筆日誌`);
   }
 
@@ -839,17 +852,59 @@ function scheduleCleanup(){
 function addLog(e){ if(!e.t) e.t=new Date().toLocaleString("zh-TW"); if(e.booker&&users[e.booker]&&!e.bookerType) e.bookerType=users[e.booker].type||"student"; logs.unshift(e); if(logs.length>500) logs.pop(); saveLogs(); }
 
 // Load from Firebase on boot
+// ★ 最佳化：sysData 改為「按日期分批拉取」，啟動時只拉今日前後共 5 天 + 固定排課（dow keys 0-6）
+// 避免一次性下載整個 sysData 造成大量流量
 async function loadFromFirebase(){
   if(!fbMode) return;
   const r=await FB.get('rooms');
   if(r) { rooms=r; lss('jj_rooms',rooms); }
   const u=await FB.get('users');   if(u) { users=u; lss('jj_users',users); }
   const cl=await FB.get('classes');if(cl&&Array.isArray(cl)){ classes=cl; lss('jj_classes',classes); }
-  const s=await FB.get('sysData'); if(s) { sysData=s; lss('jj_data',sysData); }
+
+  // ── 分批拉取 sysData：只拉「固定排課 dow keys」 + 「今日前後 3 天」──
+  const today=todayStr();
+  const datesToFetch=[];
+  for(let i=-1;i<=3;i++){
+    const d=new Date(today+'T00:00:00'); d.setDate(d.getDate()+i);
+    datesToFetch.push(dateStr(d));
+  }
+  // 先從 localStorage 還原，再用 Firebase 覆蓋最新值（離線也能顯示）
+  sysData = ls('jj_data') || {};
+  // 拉固定排課（dow 0-6）
+  for(let dow=0;dow<=6;dow++){
+    const v=await FB.get(`sysData/${dow}`);
+    if(v) sysData[String(dow)]=v;
+    else delete sysData[String(dow)];
+  }
+  // 拉近期日期資料
+  for(const dk of datesToFetch){
+    const v=await FB.get(`sysData/${dk}`);
+    if(v) sysData[dk]=v;
+    else delete sysData[dk];
+  }
+  lss('jj_data',sysData);
+
   const l=await FB.get('logs');    if(l) { logs=Array.isArray(l)?l:Object.values(l); lss('jj_logs',logs); }
   const n=await FB.get('notifs');  if(n) { notifs=n; lss('jj_notifs',notifs); }
   const ru=await FB.get('rules');  if(ru!=null) { lss('jj_rules',ru); }
   if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
+}
+
+// ── 按需拉取指定日期的 sysData（切換日期時呼叫，避免拉整個節點）──
+async function fetchDateData(dateKey){
+  if(!fbMode) return;
+  // dow key（0-6）已在啟動時拉過，不重複
+  if(/^\d$/.test(dateKey)) return;
+  const now=Date.now();
+  if(!force_fetch_dates) window.force_fetch_dates={};
+  const last=window.force_fetch_dates[dateKey]||0;
+  if(now-last < SYSDATA_POLL_MS) return; // 45 秒內不重複拉
+  window.force_fetch_dates[dateKey]=now;
+  const v=await FB.get(`sysData/${dateKey}`);
+  if(v){ sysData[dateKey]=v; }
+  else { delete sysData[dateKey]; }
+  lss('jj_data',sysData);
+  _lastSysDataFetch=now;
 }
 
 // ═══════════════════════════════════
@@ -1048,13 +1103,20 @@ let _isSaving = false;
 const SYSDATA_POLL_MS = 45000; // 45 秒輪詢一次
 
 // 主動從 Firebase 拉取 sysData（節流：SYSDATA_POLL_MS 內不重複拉取）
+// ★ 最佳化：只拉當前看板日期，不拉整個 sysData 節點
 async function fetchSysDataIfStale(force=false){
   if(!fbMode) return;
   const now = Date.now();
   if(!force && now - _lastSysDataFetch < SYSDATA_POLL_MS) return;
   _lastSysDataFetch = now;
-  const s = await FB.get('sysData');
-  if(s){ sysData=s; lss('jj_data',s); }
+  const ds = G('viewDate')?.value || todayStr();
+  // 拉當天日期資料
+  if(!/^\d$/.test(ds)){
+    const v = await FB.get(`sysData/${ds}`);
+    if(v){ sysData[ds]=v; }
+    else { delete sysData[ds]; }
+    lss('jj_data',sysData);
+  }
 }
 
 function startListeners(){
@@ -1222,7 +1284,7 @@ function confirmRename(i){
   if(nv===old){ hide(`ri${i}`); show(`rn${i}`); hide(`rsb${i}`); show(`reb${i}`); return; }
   if(rooms.includes(nv)){ toast('名稱已存在','e'); return; }
   Object.keys(sysData).forEach(k=>{ if(sysData[k]?.[old]){ sysData[k][nv]=sysData[k][old]; delete sysData[k][old]; } });
-  rooms[i]=nv; saveRooms(); saveData(); refreshRoomGrid(); renderRoomSortList(); updateBoard(); toast(`已更名：${old} → ${nv}`,'s');
+  rooms[i]=nv; saveRooms(); saveData(null); refreshRoomGrid(); renderRoomSortList(); updateBoard(); toast(`已更名：${old} → ${nv}`,'s');
 }
 
 // ═══════════════════════════════════
@@ -1287,11 +1349,17 @@ async function adminQuickDel(key,room,time){
 // BOARD
 // ═══════════════════════════════════
 function updateBoard(){
-  // 切換日期或時段時，若 sysData 超過 45 秒未更新則主動從 Firebase get 一次
-  // （非同步，不阻塞畫面渲染；拉取完成後會再次呼叫 updateBoard 刷新）
-  if(fbMode && !_isSaving && Date.now() - _lastSysDataFetch >= SYSDATA_POLL_MS){
-    fetchSysDataIfStale().then(()=>{ updateBoard(); });
-    // 先用舊資料渲染，避免等待期間畫面空白
+  // ★ 最佳化：切換日期時只拉該日的 sysData，不拉整個節點
+  if(fbMode && !_isSaving){
+    const ds = G('viewDate')?.value || todayStr();
+    if(!/^\d$/.test(ds)){
+      const now=Date.now();
+      const last=(window.force_fetch_dates||{})[ds]||0;
+      if(now - last >= SYSDATA_POLL_MS){
+        fetchDateData(ds).then(()=>{ updateBoard(); });
+        // 先用現有資料渲染，避免等待期間畫面空白
+      }
+    }
   }
   try {
     let ds = G('viewDate').value;
@@ -1980,7 +2048,7 @@ G('saveSettingBtn').addEventListener('click', async ()=>{
     addLog({t:new Date().toLocaleString('zh-TW'),msg:`封鎖: ${label} | ${rms.join('、')} | 週${dys.map(d=>DAYS[d]).join('/')} | ${tms.length}時段×${dates.length}天`,cancellable:false});
     toast(`封鎖已套用（${dates.length}天）`,'s');
   }
-  await saveData(); updateBoard(); refreshAdminLog();
+  await saveData(null); updateBoard(); refreshAdminLog();
 });
 // ═══════════════════════════════════
 // MEMBERS
@@ -2332,9 +2400,7 @@ G('importCsvBtn').addEventListener('click', async ()=>{
     }
     ok++;
   });
-  await saveData(); updateBoard();
-  const msg=`匯入：${ok}筆成功${skip?`，${skip}筆跳過`:''}`;
-  G('csvResult').textContent=errs.length?msg+'（'+errs.slice(0,2).join('；')+'）':msg;
+  await saveData(null); updateBoard();
   ok>0?toast(msg,'s'):toast('沒有成功匯入任何資料','e');
 });
 G('clearFixedBtn').addEventListener('click',()=>{
@@ -2356,7 +2422,7 @@ G('clearFixedBtn').addEventListener('click',()=>{
         if(Object.keys(sysData[k]||{}).length===0) delete sysData[k];
       }
     });
-    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
+    await saveData(null); updateBoard(); G('csvResult').textContent=''; toast('所有固定排課已清除','s');
   });
 });
 G('clearLockBtn').addEventListener('click',()=>{
@@ -2367,7 +2433,7 @@ G('clearLockBtn').addEventListener('click',()=>{
         Object.keys(sysData[k][room]||{}).forEach(t=>{ if(sysData[k][room][t]?.type==='lock') delete sysData[k][room][t]; });
       });
     });
-    await saveData(); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
+    await saveData(null); updateBoard(); G('csvResult').textContent=''; toast('所有封鎖時段已清除','s');
   });
 });
 G('dlTemplateBtn').addEventListener('click',()=>{
@@ -2502,12 +2568,35 @@ function openQueryModal(prefillName=''){
   if(prefillName) setTimeout(doQuery, 80);
 }
 
-function doQuery(){
+async function doQuery(){
   const name = G('queryName').value.trim();
   if(!name){ toast('請輸入姓名','e'); return; }
   const fromD = G('queryFrom').value;
   const toD   = G('queryTo').value;
   const today = todayStr();
+
+  // ★ 最佳化：查詢前從 Firebase 按日期拉取範圍內資料（避免看到舊快取）
+  if(fbMode && fromD && toD){
+    toast('查詢中…','i');
+    const dateList=[];
+    let cur=new Date(fromD+'T00:00:00');
+    const end=new Date(toD+'T00:00:00');
+    while(cur<=end){ dateList.push(dateStr(cur)); cur.setDate(cur.getDate()+1); }
+    // 只拉尚未快取或超過 45 秒的日期（避免不必要的重複請求）
+    const now=Date.now();
+    const stale=dateList.filter(dk=>{
+      const last=(window.force_fetch_dates||{})[dk]||0;
+      return now-last >= SYSDATA_POLL_MS;
+    });
+    for(const dk of stale){
+      const v=await FB.get(`sysData/${dk}`);
+      if(v){ sysData[dk]=v; }
+      else { delete sysData[dk]; }
+      if(!window.force_fetch_dates) window.force_fetch_dates={};
+      window.force_fetch_dates[dk]=now;
+    }
+    lss('jj_data',sysData);
+  }
 
   queryResults = [];
 
