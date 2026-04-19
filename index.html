@@ -1042,39 +1042,18 @@ function showLoginErr(msg){ const e=G('loginErr'); e.textContent=msg; e.classLis
 // ═══════════════════════════════════
 // FIREBASE REAL-TIME LISTENERS
 // ═══════════════════════════════════
-// ── sysData 最後拉取時間（毫秒）──
-let _lastSysDataFetch = 0;
-let _isSaving = false;
-const SYSDATA_POLL_MS = 45000; // 45 秒輪詢一次
-
-// 主動從 Firebase 拉取 sysData（節流：SYSDATA_POLL_MS 內不重複拉取）
-async function fetchSysDataIfStale(force=false){
-  if(!fbMode) return;
-  const now = Date.now();
-  if(!force && now - _lastSysDataFetch < SYSDATA_POLL_MS) return;
-  _lastSysDataFetch = now;
-  const s = await FB.get('sysData');
-  if(s){ sysData=s; lss('jj_data',s); }
-}
-
 function startListeners(){
   if(!fbMode) return;
-  // sysData 不再使用 onValue（即時監聽會對所有在線使用者造成大量下載）
-  // 改用：(1) 使用者切換日期/時段時主動 get，(2) 定時 45 秒輪詢
-  window.__markLocalSave = ()=>{ _lastSysDataFetch = Date.now(); _isSaving = true; setTimeout(()=>{ _isSaving=false; }, 8000); };
-
-  // notifs 只監聽自己的節點，大幅減少下載量
+  // Use a timestamp guard + isSaving flag: ignore Firebase updates during and shortly after our own save
+  let lastLocalSave = 0;
+  let isSaving = false;
+  window.__markLocalSave = ()=>{ lastLocalSave = Date.now(); isSaving = true; setTimeout(()=>{ isSaving=false; }, 8000); };
+  const u1=FB.listen('sysData',v=>{ if(v){ if(isSaving||Date.now()-lastLocalSave<6000) return; sysData=v;lss('jj_data',v);updateBoard();} });
   const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
   const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
-  const u4=FB.listen(`notifs/${curUser}`,v=>{ if(v&&Array.isArray(v)&&v.length){notifs[curUser]=v;lss('jj_notifs',notifs);} });
+  const u4=FB.listen('notifs',v=>{ if(v&&v[curUser]?.length){notifs=v;lss('jj_notifs',v);} });
   const u5=FB.listen('classes',v=>{ if(v&&Array.isArray(v)){classes=v;lss('jj_classes',v);if(isAdmin)refreshUserList();} });
-  fbListeners=[u2,u3,u4,u5];
-
-  // 定時輪詢 sysData（45 秒）
-  const pollTimer = setInterval(async ()=>{
-    if(!_isSaving){ await fetchSysDataIfStale(true); updateBoard(); }
-  }, SYSDATA_POLL_MS);
-  fbListeners.push(()=>clearInterval(pollTimer)); // 登出時一併清除
+  fbListeners=[u1,u2,u3,u4,u5];
 }
 function stopListeners(){ fbListeners.forEach(u=>{ if(typeof u==='function') u(); }); fbListeners=[]; }
 
@@ -1287,12 +1266,6 @@ async function adminQuickDel(key,room,time){
 // BOARD
 // ═══════════════════════════════════
 function updateBoard(){
-  // 切換日期或時段時，若 sysData 超過 45 秒未更新則主動從 Firebase get 一次
-  // （非同步，不阻塞畫面渲染；拉取完成後會再次呼叫 updateBoard 刷新）
-  if(fbMode && !_isSaving && Date.now() - _lastSysDataFetch >= SYSDATA_POLL_MS){
-    fetchSysDataIfStale().then(()=>{ updateBoard(); });
-    // 先用舊資料渲染，避免等待期間畫面空白
-  }
   try {
     let ds = G('viewDate').value;
     // 防呆：日期若空則帶入今日
