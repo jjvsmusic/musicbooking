@@ -1847,20 +1847,29 @@ function updateBoard(){
           }
         } else if(bookD){
           if(bookD.type==='lock'){
-            slot.className='slot sk'+(isPast?' past':'');
-            slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
-            if(isAdmin&&!isPast) slot.appendChild(makeAdminSetBtn(ds,room,time,bookD, '解除封鎖'));
-            // 若此封鎖時段符合審核條件且 override=true，非管理員可申請審核覆蓋
-            if(!isPast&&!outRange&&!isAdmin){
-              const apR=needsApproval(ds,time,room);
-              if(apR.needed&&apR.override){
-                const apHint=document.createElement('div');
-                apHint.style.cssText='font-size:.48rem;background:rgba(230,126,34,.18);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:3px;text-align:center;border:1px solid rgba(230,126,34,.4);cursor:pointer';
-                apHint.textContent='⏳ 可申請審核';
-                apHint.onclick=(e)=>{ e.stopPropagation(); if(!curUser){openLoginModal();return;} openBookModal(room,time,null); };
-                slot.appendChild(apHint);
-                slot.style.cursor='pointer';
-                slot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
+            // 先判斷是否有 override 審核條件
+            const apR = (!isPast&&!outRange) ? needsApproval(ds,time,room) : {needed:false,override:false};
+            const hasApOverride = apR.needed && apR.override;
+
+            if(hasApOverride && !isAdmin && !isPast && !outRange){
+              // 學生視角：此封鎖時段可申請審核 → 顯示橘色「需審核」格，完全取代封鎖樣式
+              slot.className='slot sf s-ap-required';
+              slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:.75rem">🔐</span><span style="font-size:.52rem;color:var(--org2);font-weight:600;line-height:1.3">需審核</span><span style="font-size:.45rem;color:var(--tx3);line-height:1.2">方可預約</span></div>`;
+              slot.style.cursor='pointer';
+              slot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
+            } else {
+              // 一般封鎖顯示
+              slot.className='slot sk'+(isPast?' past':'');
+              slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
+              if(isAdmin&&!isPast){
+                slot.appendChild(makeAdminSetBtn(ds,room,time,bookD,'解除封鎖'));
+                if(hasApOverride){
+                  // 管理員視角：顯示小標記表示此封鎖已被審核條件開放
+                  const adm=document.createElement('div');
+                  adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
+                  adm.textContent='🔐 學生可申請審核';
+                  slot.appendChild(adm);
+                }
               }
             }
           } else if(bookD.type==='fixed'){
@@ -1902,24 +1911,25 @@ function updateBoard(){
             }
           }
         } else if(fixedD&&fixedD.type==='fixed'){
-          buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
-          // 若此固定排課時段符合審核條件且 override=true，在 slot 上加提示並確保可點擊
-          if(!isPast&&!outRange&&!isAdmin){
-            const apR=needsApproval(ds,time,room);
-            if(apR.needed&&apR.override){
-              // 移除原本的「前一日開放」文字提示，改為審核提示
-              const snote=slot.querySelector('.snote');
-              if(snote) snote.remove();
-              const apHint=document.createElement('div');
-              apHint.style.cssText='font-size:.48rem;background:rgba(230,126,34,.18);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:3px;text-align:center;border:1px solid rgba(230,126,34,.4)';
-              apHint.textContent='⏳ 可申請審核';
-              slot.appendChild(apHint);
-              // 確保未到開放日的 sr 格也可以點擊
-              slot.style.cursor='pointer';
-              // 移除舊的 click 監聽（若有），再加新的
-              const newSlot=slot.cloneNode(true);
-              newSlot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
-              slot.parentNode?.replaceChild(newSlot,slot);
+          // 先判斷是否有 override 審核條件
+          const apRf = (!isPast&&!outRange) ? needsApproval(ds,time,room) : {needed:false,override:false};
+          const hasApOverrideF = apRf.needed && apRf.override;
+
+          if(hasApOverrideF && !isAdmin && !isPast && !outRange){
+            // 學生視角：此固定排課時段可申請審核 → 橘色「需審核」格取代原本「前一日開放」限制
+            slot.className='slot sf s-ap-required';
+            const rawT=fixedD.teacher||fixedD.note||'';
+            slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:.75rem">🔐</span><span style="font-size:.52rem;color:var(--org2);font-weight:600;line-height:1.3">需審核</span><span style="font-size:.45rem;color:var(--tx3);line-height:1.2">方可預約</span></div>`;
+            slot.style.cursor='pointer';
+            slot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
+          } else {
+            buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
+            // 管理員視角：若有 override 審核條件，顯示小標記
+            if(hasApOverrideF && isAdmin && !isPast){
+              const adm=document.createElement('div');
+              adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
+              adm.textContent='🔐 學生可申請審核';
+              slot.appendChild(adm);
             }
           }
         } else {
