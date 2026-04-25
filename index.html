@@ -345,6 +345,7 @@ thead th.rl { z-index:12; }
       <button class="ntab active" id="navBoard">📅 預約看板</button>
       <button class="ntab" id="navLoginBtn" style="background:rgba(212,175,55,.12);border-color:var(--gold);color:var(--gold2)">🔑 登入預約</button>
       <button class="ntab hidden" id="navApproval" style="background:rgba(230,126,34,.12);border-color:var(--org2);color:var(--org2)">🔐 待審核<span id="apBadge" class="ap-badge hidden">0</span></button>
+      <button class="ntab hidden" id="navApResult" style="background:rgba(39,174,96,.10);border-color:var(--grn2);color:var(--grn2)">📬 審核結果<span id="apResultBadge" class="ap-badge hidden" style="background:var(--grn2)">0</span></button>
       <button class="ntab hidden" id="navAdmin">⚙️ 管理後台</button>
       <button class="ntab hidden" id="logoutBtn">登出</button>
     </div>
@@ -1167,8 +1168,8 @@ function enterApp(name){
   G('userPill').style.display='flex';
   hide('navLoginBtn');
   G('btnMyBookings').style.display='inline-flex';  // 顯示「我的預約」快捷鈕
-  if(isAdmin){ show('navAdmin'); show('navApproval'); document.getElementById('mainBody').classList.add('is-admin'); G('adminBadge').style.display='inline'; }
-  else { hide('navAdmin'); hide('navApproval'); document.getElementById('mainBody').classList.remove('is-admin'); G('adminBadge').style.display='none'; }
+  if(isAdmin){ show('navAdmin'); show('navApproval'); hide('navApResult'); document.getElementById('mainBody').classList.add('is-admin'); G('adminBadge').style.display='inline'; }
+  else { hide('navAdmin'); hide('navApproval'); show('navApResult'); document.getElementById('mainBody').classList.remove('is-admin'); G('adminBadge').style.display='none'; }
   show('logoutBtn');
   G('boardPage').classList.add('active'); G('adminPage').classList.remove('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
@@ -1178,6 +1179,7 @@ function enterApp(name){
   initUI(); updateBoard();
   if(isAdmin) initAdminUI();
   updateApBadge();
+  updateApResultBadge();
   // 延遲顯示審核通知（讓頁面先渲染）
   setTimeout(()=>checkApNotifs(), 600);
   // 請求桌面推播權限
@@ -1191,7 +1193,7 @@ function doLogout(){
   document.getElementById('mainBody').classList.remove('is-admin');
   G('adminBadge').style.display='none'; G('userPill').style.display='none';
   G('btnMyBookings').style.display='none';  // 隱藏「我的預約」快捷鈕
-  hide('navAdmin'); hide('navApproval'); hide('logoutBtn'); show('navLoginBtn');
+  hide('navAdmin'); hide('navApproval'); hide('navApResult'); hide('logoutBtn'); show('navLoginBtn');
   G('adminPage').classList.remove('active');
   G('boardPage').classList.add('active');
   G('navBoard').classList.add('active'); G('navAdmin').classList.remove('active');
@@ -1237,6 +1239,7 @@ function startListeners(){
     if(v&&Array.isArray(v)){ 
       const prev=(apNotifs[curUser]||[]).length;
       apNotifs[curUser]=v; lss('jj_apNotifs',apNotifs);
+      updateApResultBadge();
       if(v.length>prev){ 
         const newest=v[v.length-1];
         if(newest){
@@ -1463,9 +1466,24 @@ function openApprovalModal(){
 }
 
 // 顯示預約者審核結果通知
+// ── 預約者審核結果通知 badge（常駐在導覽列）──
+function updateApResultBadge(){
+  if(!curUser||isAdmin) return;
+  const myNotifs=apNotifs[curUser]||[];
+  const badge=G('apResultBadge');
+  if(!badge) return;
+  if(myNotifs.length>0){
+    badge.textContent=myNotifs.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
 function checkApNotifs(){
   if(!curUser || isAdmin) return;
   const myNotifs=apNotifs[curUser]||[];
+  updateApResultBadge();
   if(!myNotifs.length) return;
   const listEl=G('apResultList'); if(!listEl) return;
   listEl.innerHTML=myNotifs.map(n=>{
@@ -1832,6 +1850,19 @@ function updateBoard(){
             slot.className='slot sk'+(isPast?' past':'');
             slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
             if(isAdmin&&!isPast) slot.appendChild(makeAdminSetBtn(ds,room,time,bookD, '解除封鎖'));
+            // 若此封鎖時段符合審核條件且 override=true，非管理員可申請審核覆蓋
+            if(!isPast&&!outRange&&!isAdmin){
+              const apR=needsApproval(ds,time,room);
+              if(apR.needed&&apR.override){
+                const apHint=document.createElement('div');
+                apHint.style.cssText='font-size:.48rem;background:rgba(230,126,34,.18);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:3px;text-align:center;border:1px solid rgba(230,126,34,.4);cursor:pointer';
+                apHint.textContent='⏳ 可申請審核';
+                apHint.onclick=(e)=>{ e.stopPropagation(); if(!curUser){openLoginModal();return;} openBookModal(room,time,null); };
+                slot.appendChild(apHint);
+                slot.style.cursor='pointer';
+                slot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
+              }
+            }
           } else if(bookD.type==='fixed'){
             // CSV-imported fixed with date — still bookable
             buildFixedSlot(slot,cell,bookD,ds,room,time,isPast,outRange,yesterday,today);
@@ -1872,14 +1903,23 @@ function updateBoard(){
           }
         } else if(fixedD&&fixedD.type==='fixed'){
           buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
-          // 若此固定排課時段同時符合審核條件且 override=true，在 slot 上加提示
+          // 若此固定排課時段符合審核條件且 override=true，在 slot 上加提示並確保可點擊
           if(!isPast&&!outRange&&!isAdmin){
             const apR=needsApproval(ds,time,room);
             if(apR.needed&&apR.override){
+              // 移除原本的「前一日開放」文字提示，改為審核提示
+              const snote=slot.querySelector('.snote');
+              if(snote) snote.remove();
               const apHint=document.createElement('div');
               apHint.style.cssText='font-size:.48rem;background:rgba(230,126,34,.18);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:3px;text-align:center;border:1px solid rgba(230,126,34,.4)';
               apHint.textContent='⏳ 可申請審核';
               slot.appendChild(apHint);
+              // 確保未到開放日的 sr 格也可以點擊
+              slot.style.cursor='pointer';
+              // 移除舊的 click 監聽（若有），再加新的
+              const newSlot=slot.cloneNode(true);
+              newSlot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
+              slot.parentNode?.replaceChild(newSlot,slot);
             }
           }
         } else {
@@ -2965,10 +3005,12 @@ G('navLoginBtn').addEventListener('click',openLoginModal);
 G('navBoard').addEventListener('click',()=>showPage('board'));
 G('navAdmin').addEventListener('click',()=>showPage('admin'));
 G('navApproval').addEventListener('click',()=>openApprovalModal());
+G('navApResult').addEventListener('click',()=>checkApNotifs());
 G('dismissApResultBtn').addEventListener('click', async ()=>{
   apNotifs[curUser]=[]; 
   lss('jj_apNotifs',apNotifs);
-  if(fbMode) await FB.remove(`apNotifs/${curUser}`); // ★ 只刪自己的路徑
+  if(fbMode) await FB.remove(`apNotifs/${curUser}`);
+  updateApResultBadge();
   closeModals();
 });
 G('apResultClose').addEventListener('click',()=>closeModal('apResultModal'));
@@ -3041,7 +3083,7 @@ async function appBoot(){
   restoreSession();
   scheduleCleanup();
   // 初始審核 badge（如果已有登入 session）
-  setTimeout(()=>{ updateApBadge(); if(curUser&&!isAdmin) checkApNotifs(); }, 800);
+  setTimeout(()=>{ updateApBadge(); updateApResultBadge(); if(curUser&&!isAdmin) checkApNotifs(); }, 800);
 }
 
 // ═══════════════════════════════════
