@@ -279,6 +279,9 @@ thead th.rl { z-index:12; }
 /* 待審核：橘色虛線 */
 .s-pending{background:rgba(230,126,34,.10);border:1.5px dashed rgba(230,126,34,.65);color:var(--org2)}
 .s-pending:hover{background:rgba(230,126,34,.18)}
+/* 需審核才可預約（空白格） */
+.s-ap-required{background:rgba(230,126,34,.06);border:1.5px dashed rgba(230,126,34,.45)!important;color:var(--org2)}
+.s-ap-required:hover{background:rgba(230,126,34,.14)}
 /* 已批准（等待中）：綠色 */
 .s-approved{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;border:none}
 /* 被拒絕：深灰斜線 */
@@ -401,10 +404,10 @@ thead th.rl { z-index:12; }
         <!-- ══ 審核條件設定 ══ -->
         <div class="acard">
           <h3>🔐 需管理員審核的時段設定</h3>
-          <p class="txs txm" style="margin-bottom:8px">設定後，符合條件的預約申請將進入「待審核」狀態，管理員審核同意後才正式登記。</p>
+          <p class="txs txm" style="margin-bottom:8px">設定後，符合條件的時段將強制要求審核，<b>即使該時段已有固定排課或封鎖也可送出申請</b>，待管理員批准後覆蓋寫入。</p>
           <div class="mbt2" id="apRuleTypeBtns">
             <button class="mbtbtn active" data-apm="dow">📅 固定星期時段</button>
-            <button class="mbtbtn" data-apm="date">🗓 特定日期時段</button>
+            <button class="mbtbtn" data-apm="daterange">📆 日期範圍時段</button>
           </div>
           <!-- 適用琴房（共用） -->
           <div style="margin-top:8px"><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用琴房</span><button class="btn bgh bsm" data-togall="apRoom" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div>
@@ -419,12 +422,26 @@ thead th.rl { z-index:12; }
               <div class="cbox"><div id="apTimeGrid" class="cgrid" style="max-height:120px"></div></div>
             </div>
           </div>
-          <!-- 特定日期模式 -->
+          <!-- 日期範圍模式 -->
           <div id="apDateWrap" class="hidden">
-            <div class="fg" style="margin-top:8px"><label class="fl">特定日期 <span style="color:var(--red2)">*</span></label><input id="apDateInput" type="date" class="fi"></div>
+            <div class="flex gap8" style="margin-top:8px;align-items:center">
+              <div class="fg flex1" style="margin:0"><label class="fl" style="font-size:.72rem">起始日期</label><input id="apDateFrom" type="date" class="fi" style="margin-top:3px"></div>
+              <span style="margin-top:18px;color:var(--tx3);font-size:.8rem">～</span>
+              <div class="fg flex1" style="margin:0"><label class="fl" style="font-size:.72rem">結束日期</label><input id="apDateTo" type="date" class="fi" style="margin-top:3px"></div>
+            </div>
+            <div style="margin-top:8px"><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">限定星期（不勾＝每天）</span><button class="btn bgh bsm" data-togall="apRangeDow" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div>
+              <div class="cbox"><div id="apRangeDowGrid" class="cgrid"></div></div>
+            </div>
             <div style="margin-top:8px"><div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="fl">適用時段</span><button class="btn bgh bsm" data-togall="apDateTime" style="padding:2px 8px;font-size:.64rem">全選／取消</button></div>
               <div class="cbox"><div id="apDateTimeGrid" class="cgrid" style="max-height:120px"></div></div>
             </div>
+          </div>
+          <!-- 覆蓋選項 -->
+          <div style="margin-top:10px;padding:8px 10px;background:rgba(230,126,34,.07);border:1px solid rgba(230,126,34,.25);border-radius:8px;display:flex;align-items:flex-start;gap:8px">
+            <input type="checkbox" id="apOverride" checked style="margin-top:2px;accent-color:var(--org2)">
+            <label for="apOverride" style="font-size:.74rem;color:var(--tx2);cursor:pointer;line-height:1.5">
+              <b style="color:var(--org2)">蓋過現有排課／封鎖</b>：符合條件的時段即使已有固定排課或封鎖，仍可送出審核申請（批准後覆蓋）
+            </label>
           </div>
           <button class="btn bg bsm bfull" id="addApRuleBtn" style="margin-top:8px">＋ 新增審核條件</button>
           <div class="sdiv"></div>
@@ -871,11 +888,40 @@ async function saveRooms(){ lss('jj_rooms',rooms); if(fbMode) await FB.set('room
 async function saveUsers(){ lss('jj_users',users); if(fbMode) await FB.set('users',users); }
 async function saveClasses(){ lss('jj_classes',classes); if(fbMode) await FB.set('classes',classes); }
 async function saveData(){  lss('jj_data',sysData); if(window.__markLocalSave) window.__markLocalSave(); if(fbMode) await FB.set('sysData',sysData); }
-async function saveLogs(){  lss('jj_logs',logs); if(fbMode) await FB.set('logs',logs.slice(0,200)); }
-async function saveNotifs(){lss('jj_notifs',notifs);if(fbMode) await FB.set('notifs',notifs); }
+// saveLogs 有兩個版本：立即版（用於主動儲存）和防抖版（用於 addLog 高頻呼叫）
+async function saveNotifs(targetUser){
+  // ★ 只寫入單一用戶的路徑，不覆蓋整包 notifs
+  const u = targetUser || curUser;
+  if(!notifs[u]) notifs[u]=[];
+  notifs[u] = notifs[u].slice(-20); // 最多保留 20 筆
+  lss('jj_notifs',notifs);
+  if(fbMode) await FB.set(`notifs/${u}`, notifs[u]);
+}
+// ── 日誌防抖寫入：避免每次 addLog 都觸發 Firebase 寫入 ──
+let _logSaveTimer=null;
+function saveLogsDebounced(){
+  // 先寫 localStorage（即時）
+  lss('jj_logs',logs);
+  // Firebase 延遲 3 秒，批次合併多次操作
+  if(!fbMode) return;
+  if(_logSaveTimer) clearTimeout(_logSaveTimer);
+  _logSaveTimer=setTimeout(()=>{ FB.set('logs',logs.slice(0,200)); _logSaveTimer=null; }, 3000);
+}
+async function saveLogs(){ lss('jj_logs',logs); if(fbMode) await FB.set('logs',logs.slice(0,200)); }
 async function saveApRules(){lss('jj_apRules',apRules);if(fbMode) await FB.set('apRules',apRules);}
 async function saveApQueue(){lss('jj_apQueue',apQueue);if(fbMode) await FB.set('apQueue',apQueue);}
-async function saveApNotifs(){lss('jj_apNotifs',apNotifs);if(fbMode) await FB.set('apNotifs',apNotifs);}
+async function saveApNotifs(targetUser){
+  // ★ 只寫入單一用戶的路徑，不覆蓋整包 apNotifs
+  const u = targetUser || (arguments[0]);
+  // 找出哪些用戶有新通知需要寫入
+  const usersToWrite = u ? [u] : Object.keys(apNotifs);
+  for(const uid of usersToWrite){
+    if(!apNotifs[uid]) continue;
+    apNotifs[uid] = apNotifs[uid].slice(-10);
+    if(fbMode) await FB.set(`apNotifs/${uid}`, apNotifs[uid]);
+  }
+  lss('jj_apNotifs',apNotifs);
+}
 // ═══════════════════════════════════
 // AUTO CLEANUP (滾動式清理)
 // ═══════════════════════════════════
@@ -937,13 +983,15 @@ function runRollingCleanup(force=false){
   lss('jj_lastCleanup',now);
 }
 
-// Schedule periodic cleanup
+// Schedule periodic cleanup — ★ 只有管理員裝置執行自動清理，避免全體用戶同時寫 Firebase
 function scheduleCleanup(){
-  runRollingCleanup(); // run on boot
-  setInterval(()=>runRollingCleanup(), CLEANUP_INTERVAL_MS);
+  runRollingCleanup(); // run on boot（非管理員也清本地端 localStorage）
+  if(isAdmin){
+    setInterval(()=>runRollingCleanup(), CLEANUP_INTERVAL_MS);
+  }
 }
 
-function addLog(e){ if(!e.t) e.t=new Date().toLocaleString("zh-TW"); if(e.booker&&users[e.booker]&&!e.bookerType) e.bookerType=users[e.booker].type||"student"; logs.unshift(e); if(logs.length>500) logs.pop(); saveLogs(); }
+function addLog(e){ if(!e.t) e.t=new Date().toLocaleString("zh-TW"); if(e.booker&&users[e.booker]&&!e.bookerType) e.bookerType=users[e.booker].type||"student"; logs.unshift(e); if(logs.length>500) logs.pop(); saveLogsDebounced(); }
 
 // Load from Firebase on boot
 async function loadFromFirebase(){
@@ -1166,7 +1214,8 @@ function startListeners(){
   const u1=FB.listen('sysData',v=>{ if(v){ if(isSaving||Date.now()-lastLocalSave<6000) return; sysData=v;lss('jj_data',v);updateBoard();} });
   const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
   const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
-  const u4=FB.listen('notifs',v=>{ if(v&&v[curUser]?.length){notifs=v;lss('jj_notifs',v);} });
+  // ★ 只監聽自己的通知路徑，避免下載全部用戶通知
+  const u4=FB.listen(`notifs/${curUser}`,v=>{ if(v&&Array.isArray(v)&&v.length){ notifs[curUser]=v; lss('jj_notifs',notifs); } });
   const u5=FB.listen('classes',v=>{ if(v&&Array.isArray(v)){classes=v;lss('jj_classes',v);if(isAdmin)refreshUserList();} });
   // 審核 queue 即時監聽（管理員收到新申請時 badge 更新）
   const u6=FB.listen('apQueue',v=>{ 
@@ -1183,13 +1232,13 @@ function startListeners(){
       } 
     } 
   });
-  // 審核結果通知（預約者即時收到審核結果）
-  const u7=FB.listen('apNotifs',v=>{ 
-    if(v&&typeof v==='object'){ 
-      const prev=(apNotifs[curUser]||[]).length; 
-      apNotifs=v;lss('jj_apNotifs',v); 
-      if(!isAdmin&&(v[curUser]||[]).length>prev){ 
-        const newest=(v[curUser]||[]).slice(-1)[0];
+  // ★ 審核結果通知：只監聽自己的路徑，避免下載全部用戶通知
+  const u7=isAdmin ? (()=>{})() : FB.listen(`apNotifs/${curUser}`,v=>{ 
+    if(v&&Array.isArray(v)){ 
+      const prev=(apNotifs[curUser]||[]).length;
+      apNotifs[curUser]=v; lss('jj_apNotifs',apNotifs);
+      if(v.length>prev){ 
+        const newest=v[v.length-1];
         if(newest){
           const icon=newest.status==='approved'?'✅':'❌';
           const label=newest.status==='approved'?'批准':'拒絕';
@@ -1224,27 +1273,32 @@ function pushNotif(userName,room,dateKey,time,note,reason){
   if(!notifs[userName]) notifs[userName]=[];
   const dl=(/^\d$/.test(String(dateKey)))?`固定（週${DAYS[+dateKey]}）`:dateKey;
   notifs[userName].push({room,date:dl,time,note:note||'—',adminName:curUser,reason,t:new Date().toLocaleString('zh-TW')});
-  saveNotifs();
+  saveNotifs(userName); // ★ 只寫入該用戶路徑
 }
 
 // ═══════════════════════════════════
 // APPROVAL SYSTEM
 // ═══════════════════════════════════
 // 判斷某個預約是否需要審核
+// 判斷某個預約是否需要審核，回傳 {needed:bool, override:bool}
 function needsApproval(ds, time, room){
-  if(!apRules || !apRules.length) return false;
+  if(!apRules || !apRules.length) return {needed:false, override:false};
   const dow = String(new Date(ds+'T00:00:00').getDay());
   for(const rule of apRules){
-    // 若有指定琴房，需符合；若 rooms 為空陣列代表全部琴房
     const roomMatch = !rule.rooms || rule.rooms.length===0 || rule.rooms.includes(room);
     if(!roomMatch) continue;
+    let matched=false;
     if(rule.type==='dow'){
-      if(rule.dows.includes(dow) && rule.times.includes(time)) return true;
-    } else if(rule.type==='date'){
-      if(rule.date===ds && rule.times.includes(time)) return true;
+      if(rule.dows.includes(dow) && rule.times.includes(time)) matched=true;
+    } else if(rule.type==='daterange'){
+      // 日期範圍：dateFrom ≤ ds ≤ dateTo，且星期符合（dows 為空代表全部星期）
+      const inRange = ds >= rule.dateFrom && ds <= rule.dateTo;
+      const dowMatch = !rule.dows || rule.dows.length===0 || rule.dows.includes(dow);
+      if(inRange && dowMatch && rule.times.includes(time)) matched=true;
     }
+    if(matched) return {needed:true, override: rule.override !== false};
   }
-  return false;
+  return {needed:false, override:false};
 }
 
 // 管理員批准
@@ -1273,7 +1327,7 @@ async function approveBooking(qid){
   if(curUser===q.booker) sendDesktopNotif('✅ 預約已批准',`${q.room} ${q.date} ${q.time} 已由 ${curUser} 批准`,'jj-ap-result');
   // 寫日誌
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 批准 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}（${q.note}）`,bookKey:q.date,bookRoom:q.room,bookTime:q.time,booker:q.booker,bookNote:q.note,cancellable:true});
-  await saveData(); await saveApQueue(); await saveApNotifs();
+  await saveData(); await saveApQueue(); await saveApNotifs(q.booker);
   updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList();
   toast(`✅ 已批准 ${q.booker} 的預約申請`,'s');
 }
@@ -1287,7 +1341,7 @@ async function rejectBooking(qid, reason){
   if(!apNotifs[q.booker]) apNotifs[q.booker]=[];
   apNotifs[q.booker].push({status:'rejected',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,reason:reason||'管理員未提供原因',t:new Date().toLocaleString('zh-TW')});
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 拒絕 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}，原因：${reason||'未說明'}`,cancellable:false});
-  await saveApQueue(); await saveApNotifs();
+  await saveApQueue(); await saveApNotifs(q.booker);
   updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList();
   toast(`已拒絕並通知 ${q.booker}`,'i');
 }
@@ -1440,7 +1494,13 @@ function initApRuleUI(){
     const v=[1,2,3,4,5,6,0][i];
     return `<label class="ci"><input type="checkbox" name="apDay" value="${v}"><span>週${d}</span></label>`;
   }).join('');
-  // Time 格（審核條件用，顯示全部半小時）
+  // 日期範圍星期篩選格
+  const rdg=G('apRangeDowGrid'); if(!rdg) return;
+  rdg.innerHTML=['一','二','三','四','五','六','日'].map((d,i)=>{
+    const v=[1,2,3,4,5,6,0][i];
+    return `<label class="ci"><input type="checkbox" name="apRangeDow" value="${v}"><span>週${d}</span></label>`;
+  }).join('');
+  // Time 格
   const tg=G('apTimeGrid'); if(!tg) return;
   tg.innerHTML=TIME_SLOTS.map(t=>`<label class="ci"><input type="checkbox" name="apTime" value="${t}"><span>${t}</span></label>`).join('');
   const tg2=G('apDateTimeGrid'); if(!tg2) return;
@@ -1450,23 +1510,28 @@ function initApRuleUI(){
     b.addEventListener('click',()=>{
       apRuleMode=b.dataset.apm;
       QA('[data-apm]').forEach(x=>x.classList.toggle('active',x.dataset.apm===apRuleMode));
-      toggle('apDowWrap',apRuleMode==='dow');
-      toggle('apDateWrap',apRuleMode==='date');
+      toggle('apDowWrap', apRuleMode==='dow');
+      toggle('apDateWrap', apRuleMode==='daterange');
     });
   });
   // Add rule btn
   G('addApRuleBtn').addEventListener('click', async ()=>{
     const selRooms=QA('input[name="apRoom"]:checked').map(e=>e.value);
+    const override=G('apOverride')?.checked !== false; // 預設 true
     if(apRuleMode==='dow'){
       const dows=QA('input[name="apDay"]:checked').map(e=>e.value);
       const times=QA('input[name="apTime"]:checked').map(e=>e.value);
       if(!dows.length||!times.length){toast('請選擇星期與時段','e');return;}
-      apRules.push({type:'dow',dows,times,rooms:selRooms,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'d'});
+      apRules.push({type:'dow',dows,times,rooms:selRooms,override,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'d'});
     } else {
-      const date=G('apDateInput').value;
+      const dateFrom=G('apDateFrom')?.value;
+      const dateTo=G('apDateTo')?.value;
+      const dows=QA('input[name="apRangeDow"]:checked').map(e=>e.value);
       const times=QA('input[name="apDateTime"]:checked').map(e=>e.value);
-      if(!date||!times.length){toast('請選擇日期與時段','e');return;}
-      apRules.push({type:'date',date,times,rooms:selRooms,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'t'});
+      if(!dateFrom||!dateTo){toast('請選擇起始與結束日期','e');return;}
+      if(dateFrom>dateTo){toast('起始日期不能晚於結束日期','e');return;}
+      if(!times.length){toast('請選擇時段','e');return;}
+      apRules.push({type:'daterange',dateFrom,dateTo,dows,times,rooms:selRooms,override,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'r'});
     }
     await saveApRules(); renderApRuleList(); toast('審核條件已新增','s');
   });
@@ -1483,14 +1548,21 @@ function renderApRuleList(){
   el.innerHTML=apRules.map(r=>{
     const timeStr=r.times&&r.times.length<=4 ? r.times.join('、') : (r.times?r.times.length+'個時段':'?');
     const roomStr=(!r.rooms||r.rooms.length===0) ? '全部琴房' : (r.rooms.length<=3 ? r.rooms.join('、') : r.rooms.length+'間琴房');
-    const label=r.type==='dow'
-      ? `週${r.dows.map(d=>dow[+d]).join('/')} ▸ ${timeStr}`
-      : `${r.date} ▸ ${timeStr}`;
-    const icon=r.type==='dow'?'📅':'🗓';
+    let label='', icon='';
+    if(r.type==='dow'){
+      icon='📅'; label=`週${r.dows.map(d=>dow[+d]).join('/')} ▸ ${timeStr}`;
+    } else if(r.type==='daterange'){
+      icon='📆';
+      const dowFilter=r.dows&&r.dows.length ? `（週${r.dows.map(d=>dow[+d]).join('/')}）` : '（每天）';
+      label=`${r.dateFrom} ～ ${r.dateTo} ${dowFilter} ▸ ${timeStr}`;
+    }
+    const overrideBadge = r.override !== false
+      ? `<span style="font-size:.6rem;background:rgba(231,76,60,.12);color:var(--red2);border:1px solid rgba(231,76,60,.3);border-radius:4px;padding:1px 5px;margin-left:5px">蓋過排課</span>`
+      : '';
     return `<div style="background:var(--bg4);border:1px solid rgba(230,126,34,.3);border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:4px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:.75rem;color:var(--org2);font-weight:600">${icon} ${esc(label)}</span>
-        <button class="rm ap-tag" data-aprid="${esc(r.id)}" style="background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);color:var(--red2);border-radius:5px;padding:2px 8px;font-size:.65rem;cursor:pointer">✕ 刪除</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+        <span style="font-size:.74rem;color:var(--org2);font-weight:600;flex:1;line-height:1.5">${icon} ${esc(label)}${overrideBadge}</span>
+        <button class="rm ap-tag" data-aprid="${esc(r.id)}" style="flex-shrink:0;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);color:var(--red2);border-radius:5px;padding:2px 8px;font-size:.65rem;cursor:pointer">✕ 刪除</button>
       </div>
       <div style="font-size:.7rem;color:var(--tx3)">🎹 ${esc(roomStr)}</div>
     </div>`;
@@ -1737,9 +1809,11 @@ function updateBoard(){
         const slot=document.createElement('div');
 
         if(pendingQ){
-          // 待審核的申請
+          // 待審核的申請（若 override=true 且底層有固定排課，顯示雙層提示）
+          const underFixed = fixedD?.type==='fixed' || bookD?.type==='fixed';
+          const overrideLabel = pendingQ.override && underFixed ? ' ⚠蓋排' : '';
           slot.className='slot s-pending'+(isPast?' past':'');
-          slot.innerHTML=`<span class="sn">⏳ ${esc(pendingQ.booker)}</span><span class="snote">待審核</span>`;
+          slot.innerHTML=`<span class="sn">⏳ ${esc(pendingQ.booker)}</span><span class="snote">待審核${esc(overrideLabel)}</span>`;
           if(isAdmin && !isPast){
             // 管理員直接在 slot 上看到審核按鈕
             const ab=document.createElement('div');
@@ -1798,9 +1872,31 @@ function updateBoard(){
           }
         } else if(fixedD&&fixedD.type==='fixed'){
           buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
+          // 若此固定排課時段同時符合審核條件且 override=true，在 slot 上加提示
+          if(!isPast&&!outRange&&!isAdmin){
+            const apR=needsApproval(ds,time,room);
+            if(apR.needed&&apR.override){
+              const apHint=document.createElement('div');
+              apHint.style.cssText='font-size:.48rem;background:rgba(230,126,34,.18);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:3px;text-align:center;border:1px solid rgba(230,126,34,.4)';
+              apHint.textContent='⏳ 可申請審核';
+              slot.appendChild(apHint);
+            }
+          }
         } else {
+          // ── 空白格 ──
+          // 判斷是否為審核條件時段
+          const apR = (!isPast&&!outRange&&!isAdmin) ? needsApproval(ds,time,room) : {needed:false};
           if(isPast||outRange){ slot.className='slot sf past'; slot.innerHTML='<span>—</span>'; }
-          else {
+          else if(apR.needed && !isAdmin){
+            // 審核條件空白格：顯示「需審核」橘色提示
+            slot.className='slot sf s-ap-required';
+            slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:.75rem">🔐</span><span style="font-size:.52rem;color:var(--org2);font-weight:600;line-height:1.3">需審核</span><span style="font-size:.45rem;color:var(--tx3);line-height:1.2">方可預約</span></div>`;
+            slot.style.cursor='pointer';
+            slot.addEventListener('click',()=>{
+              if(!curUser){ openLoginModal(); return; }
+              openBookModal(room,time,null);
+            });
+          } else {
             slot.className='slot sf';
             if(isAdmin){
               // 管理員：顯示 👤 按鈕，點整格或按鈕都觸發代填
@@ -1942,8 +2038,17 @@ function openBookModal(room,startTime,fixedD){
     }
     const dis=occ||past||restricted;
     const checked=ts===startTime&&!dis;
-    const reqApproval = !isAdmin && !dis && needsApproval(ds, ts, room);
-    tg.innerHTML+=`<label class="ci${dis?' disabled':''}" style="${reqApproval?'color:var(--org2)':''}" title="${reqApproval?'此時段需管理員審核後才正式登記':''}"><input type="checkbox" name="bTime" value="${ts}"${checked?' checked':''}${dis?' disabled':''}><span>${ts}${restricted?'🔒':reqApproval?'⏳':''}</span></label>`;
+    // 審核判斷（回傳 {needed, override}）
+    const apResult = !isAdmin ? needsApproval(ds, ts, room) : {needed:false,override:false};
+    // override=true 時：即使 restricted（固定排課）也可勾選，但 occ（已有他人預約）或 past 仍不可
+    const overrideRestricted = apResult.needed && apResult.override && restricted && !occ && !past;
+    const finalDis = overrideRestricted ? false : dis; // override 解除 restricted 禁用
+    const reqApproval = apResult.needed;
+    let labelExtra='', titleText='';
+    if(restricted && !overrideRestricted) labelExtra='🔒';
+    else if(overrideRestricted){ labelExtra='⏳'; titleText='此時段有固定排課，但審核條件允許送出申請（批准後覆蓋）'; }
+    else if(reqApproval){ labelExtra='⏳'; titleText='此時段需管理員審核後才正式登記'; }
+    tg.innerHTML+=`<label class="ci${finalDis?' disabled':''}" style="${reqApproval?'color:var(--org2)':''}" title="${titleText}"><input type="checkbox" name="bTime" value="${ts}"${(ts===startTime&&!finalDis)?' checked':''}${finalDis?' disabled':''}><span>${ts}${labelExtra}</span></label>`;
   });
   G('bookNoteSelect').value='自主練習';
   hide('lessonWrap'); hide('bookCoWrap'); hide('bookSpecialWrap'); hide('noteOtherWrap');
@@ -1972,8 +2077,10 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
   const userType=users[curUser]?.type;
 
   // ── 判斷是否有時段需要審核（管理員預約不需要審核）──
-  const needsApprovalSlots = isAdmin ? [] : sel.filter(t=>needsApproval(ds,t,room));
-  const directSlots = sel.filter(t=>!needsApprovalSlots.includes(t));
+  const apCheckMap = {}; // time -> {needed, override}
+  sel.forEach(t=>{ apCheckMap[t] = isAdmin ? {needed:false,override:false} : needsApproval(ds,t,room); });
+  const needsApprovalSlots = sel.filter(t=>apCheckMap[t].needed);
+  const directSlots = sel.filter(t=>!apCheckMap[t].needed);
 
   // 預先計算各時段的原始固定排課資訊
   const dowKey2 = String(new Date(ds+'T00:00:00').getDay());
@@ -1988,21 +2095,27 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
 
   // ── 處理需要審核的時段：加入待審核佇列 ──
   if(needsApprovalSlots.length){
-    // 衝突檢查（避免已有人佔用）
+    // 衝突檢查：override=true 時允許覆蓋固定排課/封鎖；但他人已預約（book）仍不可
     const apConflicts=needsApprovalSlots.filter(t=>{
       const ex=sysData[ds]?.[room]?.[t];
-      return ex && ex.type!=='fixed';
+      if(!ex) return false;
+      if(ex.type==='book'||ex.type==='lock'){
+        // override 情況下：lock（封鎖）可蓋過，但已有他人 book 不行
+        return ex.type==='book' || !apCheckMap[t].override;
+      }
+      return false; // fixed 在 override=true 時可蓋過
     });
-    // 也檢查是否有相同時段已在 apQueue
+    // 也檢查是否有相同時段已在 apQueue（避免重複申請）
     const qConflicts=needsApprovalSlots.filter(t=>apQueue.some(q=>q.date===ds&&q.room===room&&q.time===t));
     const allConflicts=[...new Set([...apConflicts,...qConflicts])];
-    if(allConflicts.length){showMErr('bookErr',`時段 ${allConflicts.join('、')} 已被佔用或有待審核申請`);return;}
+    if(allConflicts.length){showMErr('bookErr',`時段 ${allConflicts.join('、')} 已被他人預約或有待審核申請，無法送出`);return;}
     for(const t of needsApprovalSlots){
       const qEntry={
         id: Date.now()+'_'+Math.random().toString(36).slice(2,7),
         booker:curUser, userType,
         room, date:ds, time:t, note,
         origFixed:origFixedMap[t]||null,
+        override: apCheckMap[t].override,
         requestedAt:new Date().toLocaleString('zh-TW')
       };
       apQueue.push(qEntry);
@@ -2853,7 +2966,10 @@ G('navBoard').addEventListener('click',()=>showPage('board'));
 G('navAdmin').addEventListener('click',()=>showPage('admin'));
 G('navApproval').addEventListener('click',()=>openApprovalModal());
 G('dismissApResultBtn').addEventListener('click', async ()=>{
-  apNotifs[curUser]=[]; await saveApNotifs(); closeModals();
+  apNotifs[curUser]=[]; 
+  lss('jj_apNotifs',apNotifs);
+  if(fbMode) await FB.remove(`apNotifs/${curUser}`); // ★ 只刪自己的路徑
+  closeModals();
 });
 G('apResultClose').addEventListener('click',()=>closeModal('apResultModal'));
 G('logoutBtn').addEventListener('click',doLogout);
@@ -2867,7 +2983,12 @@ G('addRoomBtn').addEventListener('click',()=>{
   if(rooms.includes(n)){ toast('名稱已存在','e'); return; }
   rooms.push(n); saveRooms(); G('newRoomName').value=''; refreshRoomGrid(); renderRoomSortList(); toast(`已新增 ${n}`,'s');
 });
-G('dismissNotifBtn').addEventListener('click',()=>{ notifs[curUser]=[]; saveNotifs(); closeModals(); });
+G('dismissNotifBtn').addEventListener('click',async ()=>{ 
+  notifs[curUser]=[]; 
+  lss('jj_notifs',notifs);
+  if(fbMode) await FB.remove(`notifs/${curUser}`); // ★ 只刪自己的路徑
+  closeModals(); 
+});
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModals(); });
 
 // Cleanup buttons (admin only)
