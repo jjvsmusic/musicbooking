@@ -2073,7 +2073,10 @@ function openBookModal(room,startTime,fixedD){
   const dowKey=String(dow);
   TIME_SLOTS.forEach(ts=>{
     const bD=sysData[ds]?.[room]?.[ts];
-    const occ=bD&&bD.type!=='fixed';
+    // occ：已有他人「預約」才算佔用；lock 和 fixed 不算真正佔用（可被 override）
+    const occByBook = bD && bD.type==='book';
+    const occByLock  = bD && bD.type==='lock';
+    const occ = occByBook; // 只有他人預約才真正封閉
     const [hh,mm]=ts.split(':').map(Number);
     const past=(ds<today)||(ds===today&&(hh<now.getHours()||(hh===now.getHours()&&mm<=now.getMinutes())));
     // Check booking restriction for each fixed slot
@@ -2086,17 +2089,17 @@ function openBookModal(room,startTime,fixedD){
       const actualToday2=todayStr();
       if(!isNameM&&actualToday2<allowedFrom) restricted=true;
     }
-    const dis=occ||past||restricted;
-    const checked=ts===startTime&&!dis;
     // 審核判斷（回傳 {needed, override}）
     const apResult = !isAdmin ? needsApproval(ds, ts, room) : {needed:false,override:false};
-    // override=true 時：即使 restricted（固定排課）也可勾選，但 occ（已有他人預約）或 past 仍不可
+    // override=true 時：解除 restricted（固定排課前一日限制）和 occByLock（封鎖）的禁用
+    // 但 occ（他人已預約）和 past（過去）仍不可
     const overrideRestricted = apResult.needed && apResult.override && restricted && !occ && !past;
-    const finalDis = overrideRestricted ? false : dis; // override 解除 restricted 禁用
+    const overrideLock       = apResult.needed && apResult.override && occByLock  && !occ && !past;
+    const finalDis = (!overrideRestricted && !overrideLock) ? (occ||past||restricted||occByLock) : false;
     const reqApproval = apResult.needed;
     let labelExtra='', titleText='';
-    if(restricted && !overrideRestricted) labelExtra='🔒';
-    else if(overrideRestricted){ labelExtra='⏳'; titleText='此時段有固定排課，但審核條件允許送出申請（批准後覆蓋）'; }
+    if((restricted||occByLock) && (overrideRestricted||overrideLock)){ labelExtra='⏳'; titleText='此時段有固定排課／封鎖，但審核條件允許送出申請（批准後覆蓋）'; }
+    else if(restricted && !overrideRestricted) labelExtra='🔒';
     else if(reqApproval){ labelExtra='⏳'; titleText='此時段需管理員審核後才正式登記'; }
     tg.innerHTML+=`<label class="ci${finalDis?' disabled':''}" style="${reqApproval?'color:var(--org2)':''}" title="${titleText}"><input type="checkbox" name="bTime" value="${ts}"${(ts===startTime&&!finalDis)?' checked':''}${finalDis?' disabled':''}><span>${ts}${labelExtra}</span></label>`;
   });
@@ -2185,7 +2188,8 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
           txConflicts=[];
           for(const t of directSlots){
             const existing=roomData[t];
-            if(existing && existing.type!=='fixed') txConflicts.push(t);
+            // 只有他人「預約（book）」才算真正衝突；fixed/lock 可被正常預約流程覆蓋
+            if(existing && existing.type==='book') txConflicts.push(t);
           }
           if(txConflicts.length) return;
           for(const t of directSlots){
@@ -2221,7 +2225,7 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
     } else {
       if(!sysData[ds]) sysData[ds]={};
       if(!sysData[ds][room]) sysData[ds][room]={};
-      const conflicts=directSlots.filter(t=>{ const d=sysData[ds][room][t]; return d&&d.type!=='fixed'; });
+      const conflicts=directSlots.filter(t=>{ const d=sysData[ds][room][t]; return d&&d.type==='book'; });
       if(conflicts.length){ showMErr('bookErr',`時段 ${conflicts.join('、')} 已被佔用`); return; }
       directSlots.forEach(t=>{
         const entry={name:curUser,note,type:'book',userType};
