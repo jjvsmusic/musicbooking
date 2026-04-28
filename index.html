@@ -767,12 +767,29 @@ thead th.rl { z-index:12; }
 </div>
 
 <!-- ═══ 管理員審核清單 Modal ═══ -->
-<div class="modal" id="approvalModal" style="width:580px">
+<div class="modal" id="approvalModal" style="width:620px">
   <div class="mh">
     <div class="mt" style="color:var(--org2)">🔐 待審核預約清單</div>
     <button class="mc" data-close>×</button>
   </div>
   <div class="mb" style="gap:10px">
+    <!-- 批次操作工具列 -->
+    <div id="apqBatchBar" class="hidden" style="background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;cursor:pointer;font-weight:600">
+          <input type="checkbox" id="apqCheckAll" style="accent-color:var(--org2);width:15px;height:15px"> 全選／取消
+        </label>
+        <span id="apqSelCount" class="txs txm" style="color:var(--org2);min-width:60px"></span>
+        <div style="flex:1"></div>
+        <button class="btn bg bsm" id="apqBatchApprove" style="padding:5px 14px">✓ 批次批准</button>
+        <button class="btn br bsm" id="apqBatchReject"  style="padding:5px 14px">✕ 批次拒絕</button>
+      </div>
+      <div id="apqBatchRejectWrap" class="hidden" style="display:flex;gap:8px;align-items:center">
+        <input class="fi" id="apqBatchReason" placeholder="批次拒絕原因（選填，套用至所有勾選項目）" style="font-size:.75rem;padding:6px 10px;flex:1">
+        <button class="btn br bsm" id="apqBatchRejectConfirm" style="white-space:nowrap;padding:6px 14px">確認拒絕</button>
+        <button class="btn bgh bsm" id="apqBatchRejectCancel" style="padding:6px 10px">取消</button>
+      </div>
+    </div>
     <div id="apqEmpty" class="txm txs" style="text-align:center;padding:20px 0">目前沒有待審核的預約申請</div>
     <div id="apqList"></div>
   </div>
@@ -1331,7 +1348,7 @@ async function approveBooking(qid){
   // 寫日誌
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 批准 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}（${q.note}）`,bookKey:q.date,bookRoom:q.room,bookTime:q.time,booker:q.booker,bookNote:q.note,cancellable:true});
   await saveData(); await saveApQueue(); await saveApNotifs(q.booker);
-  updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList();
+  updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`✅ 已批准 ${q.booker} 的預約申請`,'s');
 }
 
@@ -1345,7 +1362,7 @@ async function rejectBooking(qid, reason){
   apNotifs[q.booker].push({status:'rejected',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,reason:reason||'管理員未提供原因',t:new Date().toLocaleString('zh-TW')});
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 拒絕 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}，原因：${reason||'未說明'}`,cancellable:false});
   await saveApQueue(); await saveApNotifs(q.booker);
-  updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList();
+  updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`已拒絕並通知 ${q.booker}`,'i');
 }
 
@@ -1426,43 +1443,104 @@ function setFaviconBadge(count){
 // 渲染審核清單 modal
 function renderApprovalList(){
   const listEl=G('apqList'); const emptyEl=G('apqEmpty'); const countEl=G('apqCount');
+  const batchBar=G('apqBatchBar');
   if(!listEl) return;
   const pending=apQueue.filter(q=>!q.resolved);
   if(!pending.length){
     listEl.innerHTML=''; emptyEl.style.display='block';
     if(countEl) countEl.textContent='';
+    if(batchBar) batchBar.classList.add('hidden');
     return;
   }
   emptyEl.style.display='none';
+  if(batchBar) batchBar.classList.remove('hidden');
   if(countEl) countEl.textContent=`共 ${pending.length} 筆待審核`;
   const dow=['日','一','二','三','四','五','六'];
   listEl.innerHTML=pending.map(q=>{
     const d=new Date(q.date+'T00:00:00');
     const dowStr=isNaN(d.getDay())?'':` 週${dow[d.getDay()]}`;
     return `<div class="apq-item" id="apqi-${esc(q.id)}">
-      <div class="apq-meta">
-        <span>🧑 <b>${esc(q.booker)}</b></span>
-        <span>🎹 <b>${esc(q.room)}</b></span>
-        <span>📅 <b>${esc(q.date)}${dowStr}</b></span>
-        <span>⏰ <b>${esc(q.time)}</b></span>
-        <span>📝 ${esc(q.note)}</span>
-        <span style="color:var(--tx3);font-size:.7rem">申請時間：${esc(q.requestedAt||'')}</span>
-      </div>
-      <div class="apq-acts">
-        <button class="btn bg bsm" style="padding:6px 16px" onclick="approveBooking('${esc(q.id)}')">✓ 同意</button>
-        <div class="apq-reject-wrap" style="display:flex;gap:6px;flex:1;min-width:160px">
-          <input class="fi" id="apRejectReason-${esc(q.id)}" placeholder="拒絕原因（選填）" style="font-size:.75rem;padding:6px 10px">
-          <button class="btn br bsm" style="white-space:nowrap;padding:6px 14px" onclick="rejectBooking('${esc(q.id)}', document.getElementById('apRejectReason-${esc(q.id)}').value)">✕ 拒絕</button>
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <input type="checkbox" class="apq-chk" data-qid="${esc(q.id)}" style="margin-top:3px;accent-color:var(--org2);width:15px;height:15px;flex-shrink:0;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div class="apq-meta">
+            <span>🧑 <b>${esc(q.booker)}</b></span>
+            <span>🎹 <b>${esc(q.room)}</b></span>
+            <span>📅 <b>${esc(q.date)}${dowStr}</b></span>
+            <span>⏰ <b>${esc(q.time)}</b></span>
+            <span>📝 ${esc(q.note)}</span>
+            ${q.override?`<span style="color:var(--org2);font-size:.68rem">⚠ 蓋過排課</span>`:''}
+            <span style="color:var(--tx3);font-size:.7rem">申請：${esc(q.requestedAt||'')}</span>
+          </div>
+          <div class="apq-acts">
+            <button class="btn bg bsm" style="padding:5px 14px" onclick="approveBooking('${esc(q.id)}')">✓ 同意</button>
+            <div class="apq-reject-wrap" style="display:flex;gap:6px;flex:1;min-width:140px">
+              <input class="fi" id="apRejectReason-${esc(q.id)}" placeholder="拒絕原因（選填）" style="font-size:.75rem;padding:5px 8px">
+              <button class="btn br bsm" style="white-space:nowrap;padding:5px 12px" onclick="rejectBooking('${esc(q.id)}', document.getElementById('apRejectReason-${esc(q.id)}').value)">✕ 拒絕</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>`;
   }).join('');
+
+  // 更新勾選計數
+  function updateSelCount(){
+    const total=listEl.querySelectorAll('.apq-chk').length;
+    const sel=listEl.querySelectorAll('.apq-chk:checked').length;
+    const sc=G('apqSelCount');
+    if(sc) sc.textContent=sel>0?`已勾選 ${sel}／${total} 筆`:'';
+    const ca=G('apqCheckAll');
+    if(ca){ ca.indeterminate=(sel>0&&sel<total); ca.checked=(sel>0&&sel===total); }
+  }
+  listEl.querySelectorAll('.apq-chk').forEach(cb=>cb.addEventListener('change',updateSelCount));
+  updateSelCount();
+}
+
+// 取得目前勾選的 qid 列表
+function getCheckedQids(){
+  return [...document.querySelectorAll('.apq-chk:checked')].map(c=>c.dataset.qid);
+}
+
+// 綁定批次操作事件（每次清單渲染後呼叫）
+function bindBatchEvents(){
+  const ca=G('apqCheckAll');
+  if(ca){ ca.onchange=()=>{
+    document.querySelectorAll('.apq-chk').forEach(c=>c.checked=ca.checked);
+    const sc=G('apqSelCount'); const total=document.querySelectorAll('.apq-chk').length;
+    if(sc) sc.textContent=ca.checked?`已勾選 ${total}／${total} 筆`:'';
+  };}
+  const brw=G('apqBatchRejectWrap');
+  const ba=G('apqBatchApprove');
+  if(ba){ ba.onclick=async()=>{
+    const ids=getCheckedQids(); if(!ids.length){toast('請先勾選要批准的申請','e');return;}
+    if(!confirm(`確定批准勾選的 ${ids.length} 筆申請？`)) return;
+    for(const id of [...ids]) await approveBooking(id);
+    bindBatchEvents();
+  };}
+  const br=G('apqBatchReject');
+  if(br&&brw){ br.onclick=()=>{
+    const ids=getCheckedQids(); if(!ids.length){toast('請先勾選要拒絕的申請','e');return;}
+    brw.classList.remove('hidden'); brw.style.display='flex'; G('apqBatchReason').focus();
+  };}
+  const brc=G('apqBatchRejectConfirm');
+  if(brc){ brc.onclick=async()=>{
+    const ids=getCheckedQids(); if(!ids.length){toast('請先勾選要拒絕的申請','e');return;}
+    const reason=G('apqBatchReason').value;
+    if(!confirm(`確定拒絕勾選的 ${ids.length} 筆申請？`)) return;
+    for(const id of [...ids]) await rejectBooking(id, reason);
+    if(brw){ brw.classList.add('hidden'); G('apqBatchReason').value=''; }
+    bindBatchEvents();
+  };}
+  const bcan=G('apqBatchRejectCancel');
+  if(bcan&&brw){ bcan.onclick=()=>{ brw.classList.add('hidden'); G('apqBatchReason').value=''; }; }
 }
 
 // 開啟審核 modal
 function openApprovalModal(){
   renderApprovalList();
   openModal('approvalModal');
+  bindBatchEvents();
 }
 
 // 顯示預約者審核結果通知
