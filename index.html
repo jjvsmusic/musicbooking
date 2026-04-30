@@ -1014,18 +1014,29 @@ function addLog(e){ if(!e.t) e.t=new Date().toLocaleString("zh-TW"); if(e.booker
 // Load from Firebase on boot
 async function loadFromFirebase(){
   if(!fbMode) return;
+  // ★ 費用優化：只下載必要的小型節點
+  // sysData / users / rooms 仍需在登入前載入（顯示看板用）
   const r=await FB.get('rooms');
   if(r) { rooms=r; lss('jj_rooms',rooms); }
   const u=await FB.get('users');   if(u) { users=u; lss('jj_users',users); }
   const cl=await FB.get('classes');if(cl&&Array.isArray(cl)){ classes=cl; lss('jj_classes',classes); }
   const s=await FB.get('sysData'); if(s) { sysData=s; lss('jj_data',sysData); }
-  const l=await FB.get('logs');    if(l) { logs=Array.isArray(l)?l:Object.values(l); lss('jj_logs',logs); }
-  const n=await FB.get('notifs');  if(n) { notifs=n; lss('jj_notifs',notifs); }
+  // ★ logs 只有管理員需要，且限制筆數 — 移到登入後按需載入
+  // ★ notifs / apNotifs 只拉自己的 — 移到登入後按用戶路徑載入
   const ru=await FB.get('rules');  if(ru!=null) { lss('jj_rules',ru); }
   const ar=await FB.get('apRules');if(ar&&Array.isArray(ar)){apRules=ar;lss('jj_apRules',ar);}
   const aq=await FB.get('apQueue');if(aq&&Array.isArray(aq)){apQueue=aq;lss('jj_apQueue',aq);}
-  const an=await FB.get('apNotifs');if(an&&typeof an==='object'){apNotifs=an;lss('jj_apNotifs',an);}
   if(!users[ADMIN_NAME]) users[ADMIN_NAME]={pwd:ADMIN_KEY,type:'admin'};
+}
+
+// 登入後按用戶路徑載入個人資料（費用優化：不下載全體通知）
+async function loadUserData(userName, admin){
+  if(!fbMode) return;
+  // 載入自己的通知
+  try{ const n=await FB.get(`notifs/${userName}`); if(n&&Array.isArray(n)){notifs[userName]=n;lss('jj_notifs',notifs);} }catch(e){}
+  try{ const an=await FB.get(`apNotifs/${userName}`); if(an&&Array.isArray(an)){apNotifs[userName]=an;lss('jj_apNotifs',apNotifs);} }catch(e){}
+  // 管理員才載入 logs
+  if(admin){ try{ const l=await FB.get('logs'); if(l){logs=Array.isArray(l)?l:Object.values(l);lss('jj_logs',logs);} }catch(e){} }
 }
 
 // ═══════════════════════════════════
@@ -1197,8 +1208,11 @@ function enterApp(name){
   if(isAdmin) initAdminUI();
   updateApBadge();
   updateApResultBadge();
-  // 延遲顯示審核通知（讓頁面先渲染）
-  setTimeout(()=>checkApNotifs(), 600);
+  // 登入後載入個人通知資料（按用戶路徑，不下載全體）
+  loadUserData(curUser, isAdmin).then(()=>{
+    updateApBadge(); updateApResultBadge();
+    setTimeout(()=>checkApNotifs(), 200);
+  });
   // 請求桌面推播權限
   setTimeout(()=>requestNotifPermission(), 1200);
   // Firebase real-time listeners
@@ -1226,51 +1240,129 @@ function showLoginErr(msg){ const e=G('loginErr'); e.textContent=msg; e.classLis
 // ═══════════════════════════════════
 function startListeners(){
   if(!fbMode) return;
-  // Use a timestamp guard + isSaving flag: ignore Firebase updates during and shortly after our own save
   let lastLocalSave = 0;
   let isSaving = false;
   window.__markLocalSave = ()=>{ lastLocalSave = Date.now(); isSaving = true; setTimeout(()=>{ isSaving=false; }, 8000); };
-  const u1=FB.listen('sysData',v=>{ if(v){ if(isSaving||Date.now()-lastLocalSave<6000) return; sysData=v;lss('jj_data',v);updateBoard();} });
-  const u2=FB.listen('rooms',v=>{ if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();} });
-  const u3=FB.listen('users',v=>{ if(v){users=v;lss('jj_users',v);if(isAdmin)refreshUserList();} });
-  // ★ 只監聽自己的通知路徑，避免下載全部用戶通知
+
+  // ══════════════════════════════════════════════════════════
+  // ★ 費用最佳化核心策略：
+  //
+  // 1. sysData 按「日期」拆分監聽
+  //    學生看板只需要「今天」和「往後幾天」的資料
+  //    每個日期節點只有幾KB，而非整包 200KB
+  //    用版本戳（meta/sysVer）偵測有無整體結構變動
+  //
+  // 2. users/rooms/classes 改為登入時一次性 get
+  //    這些資料幾乎不變，不需要即時監聽
+  //
+  // 3. 只保留真正需要即時的小型節點 onValue：
+  //    apQueue / apNotifs/{user} / apRules / notifs/{user}
+  // ══════════════════════════════════════════════════════════
+
+  // 計算需要監聽的日期範圍（今天到學生最大預約日）
+  function getWatchDates(){
+    const dates = [];
+    const today = new Date();
+    // 監聽今天往前1天（管理員查歷史）到往後14天
+    for(let i=-1; i<=14; i++){
+      const d = new Date(today); d.setDate(d.getDate()+i);
+      dates.push(d.toISOString().slice(0,10));
+    }
+    return dates;
+  }
+
+  // 監聽指定日期的 sysData（每個節點只有幾KB）
+  const dateListeners = {};
+  function watchDate(ds){
+    if(dateListeners[ds]) return; // 已在監聽
+    dateListeners[ds] = FB.listen(`sysData/${ds}`, v=>{
+      if(isSaving || Date.now()-lastLocalSave<8000) return;
+      if(!sysData[ds]) sysData[ds]={};
+      if(JSON.stringify(sysData[ds])===JSON.stringify(v)) return;
+      sysData[ds] = v || {};
+      lss('jj_data', sysData);
+      updateBoard();
+    });
+  }
+
+  // 監聽固定週期排課（sysData 的 0~6 鍵，即星期資料）
+  for(let dow=0; dow<=6; dow++){
+    const key = String(dow);
+    FB.listen(`sysData/${key}`, v=>{
+      if(isSaving || Date.now()-lastLocalSave<8000) return;
+      if(!v) return;
+      sysData[key] = v;
+      lss('jj_data', sysData);
+      updateBoard();
+    });
+  }
+
+  // 開始監聽當前日期範圍
+  getWatchDates().forEach(ds => watchDate(ds));
+
+  // 每天午夜後自動監聽新的一天（滑動視窗）
+  setInterval(()=>{
+    const newDay = new Date(); newDay.setDate(newDay.getDate()+14);
+    watchDate(newDay.toISOString().slice(0,10));
+  }, 3600000); // 每小時檢查一次
+
+  // rooms/classes：登入時已 get 過，極少變動，每小時輪詢一次即可
+  const t2 = setInterval(async()=>{
+    try{
+      const v=await FB.get('rooms');
+      if(v&&JSON.stringify(v)!==JSON.stringify(rooms)){rooms=v;lss('jj_rooms',v);if(isAdmin)initAdminUI();updateBoard();}
+    }catch(e){}
+  }, 3600000); // 每小時
+
+  // users：只有管理員需要，每 5 分鐘
+  if(isAdmin){
+    const t3=setInterval(async()=>{
+      try{ const v=await FB.get('users'); if(v){users=v;lss('jj_users',v);refreshUserList();} }catch(e){}
+    }, 300000);
+    fbListeners.push(()=>clearInterval(t3));
+  }
+
+  // ── 小型節點：保留 onValue（資料量極小，需即時）──
   const u4=FB.listen(`notifs/${curUser}`,v=>{ if(v&&Array.isArray(v)&&v.length){ notifs[curUser]=v; lss('jj_notifs',notifs); } });
-  const u5=FB.listen('classes',v=>{ if(v&&Array.isArray(v)){classes=v;lss('jj_classes',v);if(isAdmin)refreshUserList();} });
-  // 審核 queue 即時監聽（管理員收到新申請時 badge 更新）
-  const u6=FB.listen('apQueue',v=>{ 
-    if(v&&Array.isArray(v)){ 
+
+  const u6=FB.listen('apQueue',v=>{
+    if(v&&Array.isArray(v)){
       const prevCount=apQueue.length;
       apQueue=v;lss('jj_apQueue',v);
-      updateApBadge();updateBoard(); 
-      if(isAdmin){ 
-        renderApprovalList();
+      updateApBadge();updateBoard();
+      if(isAdmin){
+        renderApprovalList(); bindBatchEvents();
         if(v.length>prevCount){
           const newest=v[v.length-1];
           sendDesktopNotif('🔐 新審核申請',`${newest.booker} 申請預約 ${newest.room} ${newest.date} ${newest.time}`,'jj-ap-new');
         }
-      } 
-    } 
+      }
+    }
   });
-  // ★ 審核結果通知：只監聽自己的路徑，避免下載全部用戶通知
-  const u7=isAdmin ? (()=>{})() : FB.listen(`apNotifs/${curUser}`,v=>{ 
-    if(v&&Array.isArray(v)){ 
+
+  const u7=isAdmin ? (()=>{})() : FB.listen(`apNotifs/${curUser}`,v=>{
+    if(v&&Array.isArray(v)){
       const prev=(apNotifs[curUser]||[]).length;
       apNotifs[curUser]=v; lss('jj_apNotifs',apNotifs);
       updateApResultBadge();
-      if(v.length>prev){ 
+      if(v.length>prev){
         const newest=v[v.length-1];
         if(newest){
           const icon=newest.status==='approved'?'✅':'❌';
           const label=newest.status==='approved'?'批准':'拒絕';
           sendDesktopNotif(`${icon} 預約審核結果`,`您在 ${newest.room} ${newest.date} ${newest.time} 的申請已${label}`,'jj-ap-result');
         }
-        checkApNotifs(); 
-      } 
-    } 
+        checkApNotifs();
+      }
+    }
   });
-  // 審核條件變更
+
   const u8=FB.listen('apRules',v=>{ if(v&&Array.isArray(v)){apRules=v;lss('jj_apRules',v);if(isAdmin)renderApRuleList();} });
-  fbListeners=[u1,u2,u3,u4,u5,u6,u7,u8];
+
+  fbListeners=[u4,u6,u7,u8,()=>clearInterval(t2),
+    // 停止所有日期監聽
+    ()=>Object.values(dateListeners).forEach(u=>{ if(typeof u==='function') u(); })
+  ];
 }
 function stopListeners(){ fbListeners.forEach(u=>{ if(typeof u==='function') u(); }); fbListeners=[]; }
 
