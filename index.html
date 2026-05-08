@@ -1603,6 +1603,12 @@ function renderApprovalList(){
 }
 
 // ═══════════════════════════════════
+// 取得目前勾選的 qid 列表
+function getCheckedQids(){
+  return [...document.querySelectorAll('.apq-chk:checked')].map(c=>c.dataset.qid);
+}
+
+// ═══════════════════════════════════
 // 批次審核：一次性批量寫入（節省 Firebase 費用）
 // ═══════════════════════════════════
 async function batchApproveBookings(ids){
@@ -1731,8 +1737,6 @@ async function batchDeleteExpiredBookings(ids){
   if(fbMode) await FB.set('apQueue',apQueue);
   updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`已刪除 ${expiredIds.length} 筆過期申請紀錄`,'i');
-}
-  return [...document.querySelectorAll('.apq-chk:checked')].map(c=>c.dataset.qid);
 }
 
 // 綁定批次操作事件（每次清單渲染後呼叫）
