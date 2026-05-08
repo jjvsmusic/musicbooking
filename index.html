@@ -783,6 +783,7 @@ thead th.rl { z-index:12; }
         <div style="flex:1"></div>
         <button class="btn bg bsm" id="apqBatchApprove" style="padding:5px 14px">✓ 批次批准</button>
         <button class="btn br bsm" id="apqBatchReject"  style="padding:5px 14px">✕ 批次拒絕</button>
+        <button class="btn bgh bsm" id="apqBatchDeleteExpired" style="padding:5px 14px;font-size:.68rem;border-color:var(--tx3);color:var(--tx3)">🗑 刪除已選過期</button>
       </div>
       <div id="apqBatchRejectWrap" class="hidden" style="display:flex;gap:8px;align-items:center">
         <input class="fi" id="apqBatchReason" placeholder="批次拒絕原因（選填，套用至所有勾選項目）" style="font-size:.75rem;padding:6px 10px;flex:1">
@@ -1546,14 +1547,22 @@ function renderApprovalList(){
   }
   emptyEl.style.display='none';
   if(batchBar) batchBar.classList.remove('hidden');
-  if(countEl) countEl.textContent=`共 ${pending.length} 筆待審核`;
+  const expiredCount=pending.filter(q=>isPastSlot(q.date,q.time)).length;
+  if(countEl) countEl.textContent=`共 ${pending.length} 筆待審核${expiredCount>0?`（含 ${expiredCount} 筆已過期）`:''}`;
   const dow=['日','一','二','三','四','五','六'];
   listEl.innerHTML=pending.map(q=>{
     const d=new Date(q.date+'T00:00:00');
     const dowStr=isNaN(d.getDay())?'':` 週${dow[d.getDay()]}`;
-    return `<div class="apq-item" id="apqi-${esc(q.id)}">
+    const isExpired=isPastSlot(q.date,q.time);
+    const expiredBadge=isExpired
+      ?`<span style="background:rgba(100,100,100,.15);color:var(--tx3);border:1px solid rgba(100,100,100,.3);border-radius:8px;padding:1px 8px;font-size:.65rem;font-weight:600">⏰ 時段已過</span>`
+      :'';
+    const itemStyle=isExpired
+      ?'background:rgba(100,100,100,.05);border:1px solid rgba(100,100,100,.2);opacity:.85;'
+      :'';
+    return `<div class="apq-item" id="apqi-${esc(q.id)}" style="${itemStyle}">
       <div style="display:flex;align-items:flex-start;gap:10px">
-        <input type="checkbox" class="apq-chk" data-qid="${esc(q.id)}" style="margin-top:3px;accent-color:var(--org2);width:15px;height:15px;flex-shrink:0;cursor:pointer">
+        <input type="checkbox" class="apq-chk${isExpired?' apq-expired':''}" data-qid="${esc(q.id)}" data-expired="${isExpired?'1':'0'}" style="margin-top:3px;accent-color:${isExpired?'var(--tx3)':'var(--org2)'};width:15px;height:15px;flex-shrink:0;cursor:pointer">
         <div style="flex:1;min-width:0">
           <div class="apq-meta">
             <span>🧑 <b>${esc(q.booker)}</b></span>
@@ -1561,15 +1570,19 @@ function renderApprovalList(){
             <span>📅 <b>${esc(q.date)}${dowStr}</b></span>
             <span>⏰ <b>${esc(q.time)}</b></span>
             <span>📝 ${esc(q.note)}</span>
+            ${expiredBadge}
             ${q.override?`<span style="color:var(--org2);font-size:.68rem">⚠ 蓋過排課</span>`:''}
             <span style="color:var(--tx3);font-size:.7rem">申請：${esc(q.requestedAt||'')}</span>
           </div>
           <div class="apq-acts">
-            <button class="btn bg bsm" style="padding:5px 14px" onclick="approveBooking('${esc(q.id)}')">✓ 同意</button>
-            <div class="apq-reject-wrap" style="display:flex;gap:6px;flex:1;min-width:140px">
-              <input class="fi" id="apRejectReason-${esc(q.id)}" placeholder="拒絕原因（選填）" style="font-size:.75rem;padding:5px 8px">
-              <button class="btn br bsm" style="white-space:nowrap;padding:5px 12px" onclick="rejectBooking('${esc(q.id)}', document.getElementById('apRejectReason-${esc(q.id)}').value)">✕ 拒絕</button>
-            </div>
+            ${isExpired
+              ? `<span style="font-size:.72rem;color:var(--tx3);font-style:italic">此時段已過期，建議勾選後刪除</span>`
+              : `<button class="btn bg bsm" style="padding:5px 14px" onclick="approveBooking('${esc(q.id)}')">✓ 同意</button>
+                 <div class="apq-reject-wrap" style="display:flex;gap:6px;flex:1;min-width:140px">
+                   <input class="fi" id="apRejectReason-${esc(q.id)}" placeholder="拒絕原因（選填）" style="font-size:.75rem;padding:5px 8px">
+                   <button class="btn br bsm" style="white-space:nowrap;padding:5px 12px" onclick="rejectBooking('${esc(q.id)}', document.getElementById('apRejectReason-${esc(q.id)}').value)">✕ 拒絕</button>
+                 </div>`
+            }
           </div>
         </div>
       </div>
@@ -1589,8 +1602,136 @@ function renderApprovalList(){
   updateSelCount();
 }
 
-// 取得目前勾選的 qid 列表
-function getCheckedQids(){
+// ═══════════════════════════════════
+// 批次審核：一次性批量寫入（節省 Firebase 費用）
+// ═══════════════════════════════════
+async function batchApproveBookings(ids){
+  if(!ids.length) return;
+  const now=new Date().toLocaleString('zh-TW');
+  const notifsByUser={};  // { booker: [notif,...] }
+  const logsToAdd=[];
+
+  ids.forEach(qid=>{
+    const idx=apQueue.findIndex(q=>q.id===qid);
+    if(idx<0) return;
+    const q=apQueue[idx];
+    // 寫入本地 sysData
+    if(!sysData[q.date]) sysData[q.date]={};
+    if(!sysData[q.date][q.room]) sysData[q.date][q.room]={};
+    const dowKey=String(new Date(q.date+'T00:00:00').getDay());
+    const existFixed=sysData[q.date][q.room][q.time]?.type==='fixed'
+      ?(sysData[q.date][q.room][q.time].teacher||sysData[q.date][q.room][q.time].note||'')
+      :sysData[dowKey]?.[q.room]?.[q.time]?.type==='fixed'
+        ?(sysData[dowKey][q.room][q.time].teacher||sysData[dowKey][q.room][q.time].note||'')
+        :null;
+    const entry={name:q.booker,note:q.note,type:'book',userType:q.userType,approvedBy:curUser,approvedAt:now};
+    if(existFixed) entry.origFixed=existFixed;
+    sysData[q.date][q.room][q.time]=entry;
+    // 累積通知
+    if(!notifsByUser[q.booker]) notifsByUser[q.booker]=[];
+    notifsByUser[q.booker].push({status:'approved',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,t:now});
+    // 累積日誌
+    logsToAdd.push({t:now,msg:`[管理員 ${curUser}] 批准 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}（${q.note}）`,bookKey:q.date,bookRoom:q.room,bookTime:q.time,booker:q.booker,bookNote:q.note,cancellable:true});
+    // 從 queue 移除
+    apQueue.splice(idx,1);
+  });
+
+  // 一次性寫回 localStorage
+  lss('jj_data',sysData);
+  lss('jj_apQueue',apQueue);
+  lss('jj_apNotifs',apNotifs);
+
+  if(fbMode){
+    // ① 批次寫入 sysData（一次 set 整包，而非逐筆）
+    if(window.__markLocalSave) window.__markLocalSave();
+    const sysDataPromise=FB.set('sysData',sysData);
+    // ② apQueue 一次寫入
+    const queuePromise=FB.set('apQueue',apQueue);
+    // ③ 通知分用戶寫入（各用戶各一次，數量 = 不同申請人數量）
+    const notifPromises=Object.entries(notifsByUser).map(([uid,newNotifs])=>{
+      if(!apNotifs[uid]) apNotifs[uid]=[];
+      apNotifs[uid]=[...apNotifs[uid],...newNotifs].slice(-10);
+      lss('jj_apNotifs',apNotifs);
+      return FB.set(`apNotifs/${uid}`,apNotifs[uid]);
+    });
+    await Promise.all([sysDataPromise, queuePromise, ...notifPromises]);
+  } else {
+    // 離線模式：同步通知到 apNotifs
+    Object.entries(notifsByUser).forEach(([uid,newNotifs])=>{
+      if(!apNotifs[uid]) apNotifs[uid]=[];
+      apNotifs[uid]=[...apNotifs[uid],...newNotifs].slice(-10);
+    });
+    lss('jj_apNotifs',apNotifs);
+  }
+
+  // 日誌（防抖寫入）
+  logsToAdd.forEach(l=>addLog(l));
+
+  updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
+  toast(`✅ 已批准 ${ids.length} 筆預約申請`,'s');
+}
+
+async function batchRejectBookings(ids, reason){
+  if(!ids.length) return;
+  const now=new Date().toLocaleString('zh-TW');
+  const notifsByUser={};
+  const logsToAdd=[];
+
+  ids.forEach(qid=>{
+    const idx=apQueue.findIndex(q=>q.id===qid);
+    if(idx<0) return;
+    const q=apQueue[idx];
+    if(!notifsByUser[q.booker]) notifsByUser[q.booker]=[];
+    notifsByUser[q.booker].push({status:'rejected',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,reason:reason||'管理員未提供原因',t:now});
+    logsToAdd.push({t:now,msg:`[管理員 ${curUser}] 拒絕 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}，原因：${reason||'未說明'}`,cancellable:false});
+    apQueue.splice(idx,1);
+  });
+
+  lss('jj_apQueue',apQueue);
+
+  if(fbMode){
+    const queuePromise=FB.set('apQueue',apQueue);
+    const notifPromises=Object.entries(notifsByUser).map(([uid,newNotifs])=>{
+      if(!apNotifs[uid]) apNotifs[uid]=[];
+      apNotifs[uid]=[...apNotifs[uid],...newNotifs].slice(-10);
+      lss('jj_apNotifs',apNotifs);
+      return FB.set(`apNotifs/${uid}`,apNotifs[uid]);
+    });
+    await Promise.all([queuePromise, ...notifPromises]);
+  } else {
+    Object.entries(notifsByUser).forEach(([uid,newNotifs])=>{
+      if(!apNotifs[uid]) apNotifs[uid]=[];
+      apNotifs[uid]=[...apNotifs[uid],...newNotifs].slice(-10);
+    });
+    lss('jj_apNotifs',apNotifs);
+  }
+
+  logsToAdd.forEach(l=>addLog(l));
+  updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
+  toast(`已拒絕 ${ids.length} 筆申請並通知申請者`,'i');
+}
+
+async function batchDeleteExpiredBookings(ids){
+  if(!ids.length) return;
+  // 只刪除確實已過期的
+  const expiredIds=ids.filter(qid=>{
+    const q=apQueue.find(q=>q.id===qid);
+    return q && isPastSlot(q.date,q.time);
+  });
+  if(!expiredIds.length){ toast('所選項目中沒有已過期的時段','e'); return; }
+  expiredIds.forEach(qid=>{
+    const idx=apQueue.findIndex(q=>q.id===qid);
+    if(idx>=0){
+      const q=apQueue[idx];
+      addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 刪除過期待審核申請：${q.booker} ${q.room} ${q.date} ${q.time}`,cancellable:false});
+      apQueue.splice(idx,1);
+    }
+  });
+  lss('jj_apQueue',apQueue);
+  if(fbMode) await FB.set('apQueue',apQueue);
+  updateApBadge(); renderApprovalList(); bindBatchEvents();
+  toast(`已刪除 ${expiredIds.length} 筆過期申請紀錄`,'i');
+}
   return [...document.querySelectorAll('.apq-chk:checked')].map(c=>c.dataset.qid);
 }
 
@@ -1606,8 +1747,13 @@ function bindBatchEvents(){
   const ba=G('apqBatchApprove');
   if(ba){ ba.onclick=async()=>{
     const ids=getCheckedQids(); if(!ids.length){toast('請先勾選要批准的申請','e');return;}
-    if(!confirm(`確定批准勾選的 ${ids.length} 筆申請？`)) return;
-    for(const id of [...ids]) await approveBooking(id);
+    // 過濾掉已過期的（不批准）
+    const validIds=ids.filter(qid=>{ const q=apQueue.find(q=>q.id===qid); return q&&!isPastSlot(q.date,q.time); });
+    const expiredCnt=ids.length-validIds.length;
+    if(!validIds.length){toast('所選申請均已過期，無法批准','e');return;}
+    const msg=expiredCnt>0?`確定批准勾選的 ${validIds.length} 筆申請？（已略過 ${expiredCnt} 筆過期）`:`確定批准勾選的 ${validIds.length} 筆申請？`;
+    if(!confirm(msg)) return;
+    await batchApproveBookings(validIds);
     bindBatchEvents();
   };}
   const br=G('apqBatchReject');
@@ -1620,12 +1766,22 @@ function bindBatchEvents(){
     const ids=getCheckedQids(); if(!ids.length){toast('請先勾選要拒絕的申請','e');return;}
     const reason=G('apqBatchReason').value;
     if(!confirm(`確定拒絕勾選的 ${ids.length} 筆申請？`)) return;
-    for(const id of [...ids]) await rejectBooking(id, reason);
+    await batchRejectBookings(ids, reason);
     if(brw){ brw.classList.add('hidden'); G('apqBatchReason').value=''; }
     bindBatchEvents();
   };}
   const bcan=G('apqBatchRejectCancel');
   if(bcan&&brw){ bcan.onclick=()=>{ brw.classList.add('hidden'); G('apqBatchReason').value=''; }; }
+  // 刪除已選過期按鈕
+  const bde=G('apqBatchDeleteExpired');
+  if(bde){ bde.onclick=async()=>{
+    const ids=getCheckedQids(); if(!ids.length){toast('請先勾選要刪除的申請','e');return;}
+    const expiredIds=ids.filter(qid=>{ const q=apQueue.find(q=>q.id===qid); return q&&isPastSlot(q.date,q.time); });
+    if(!expiredIds.length){toast('所選項目中沒有已過期的時段','e');return;}
+    if(!confirm(`確定刪除 ${expiredIds.length} 筆過期的申請紀錄？（此操作不會通知申請者）`)) return;
+    await batchDeleteExpiredBookings(ids);
+    bindBatchEvents();
+  };}
 }
 
 // 開啟審核 modal
