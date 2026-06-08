@@ -3021,9 +3021,8 @@ function refreshUserList(){
           <span>▼ 學生 · ${esc(cls)}</span>
           <span class="mbadge mbs" style="font-size:.6rem">${arr.length}</span>
         </div>
-        <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
           <button class="btn bgh bsm" data-cls-selall="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">全選</button>
-         
           <button class="btn br bsm" data-cls-delsel="${esc(cls)}" style="font-size:.62rem;padding:2px 7px">刪除已選</button>
         </div>
       </summary>
@@ -3051,6 +3050,7 @@ document.addEventListener('click',ev=>{
   // select all in class
   const sa=ev.target.closest('[data-cls-selall]');
   if(sa){
+    ev.preventDefault();
     const cls=sa.dataset.clsSelall;
     const details=sa.closest('details');
     if(details) details.querySelectorAll('.member-chk').forEach(c=>c.checked=true);
@@ -3060,6 +3060,7 @@ document.addEventListener('click',ev=>{
  
   const ds=ev.target.closest('[data-cls-delsel]');
   if(ds){
+    ev.preventDefault();
     const cls=ds.dataset.clsDelsel;
     const details=ds.closest('details');
     if(!details) return;
