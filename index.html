@@ -940,6 +940,38 @@ async function saveApQueue(){
     });
   }
 }
+// ═══════════════════════════════════
+// ★ 修正「已刪除的過期待審核申請過一兩小時後又出現」的根本成因：
+//   之前所有 apQueue 的異動（新增／批准／拒絕／刪除）都是先在「本地端」的
+//   apQueue 陣列做 splice/push，再用 FB.set('apQueue', 本地陣列) 整包覆蓋。
+//   如果某個瀏覽器分頁/裝置背景太久沒收到最新推播（本地端 apQueue 是舊快照，
+//   仍含有已被其他裝置刪除的過期項目），之後只要它做「任何」一次 apQueue 寫入
+//   （例如學生在該分頁又送出一筆新的審核申請），就會把自己那份「舊、較完整」
+//   的陣列整包蓋回 Firebase，等於把剛才別人刪除的過期項目「復活」。
+//   解法：所有異動一律透過 Firebase transaction 操作，mutatorFn 拿到的是
+//   「當下伺服器上最新的陣列」而非本地快取，因此不會被過期的本地資料覆蓋。
+async function apQueueMutate(mutatorFn){
+  if(!fbMode){
+    apQueue = mutatorFn(apQueue.slice());
+    lss('jj_apQueue', apQueue);
+    return apQueue;
+  }
+  _apQueueWriting = true;
+  try{
+    const result = await FB.transaction('apQueue', current=>{
+      const serverArr = Array.isArray(current) ? current : [];
+      return mutatorFn(serverArr.slice());
+    });
+    if(result && result.committed){
+      const val = result.snapshot ? result.snapshot.val() : null;
+      apQueue = Array.isArray(val) ? val : [];
+    }
+    lss('jj_apQueue', apQueue);
+  } finally {
+    setTimeout(()=>{ _apQueueWriting = false; }, 5000);
+  }
+  return apQueue;
+}
 async function saveApNotifs(targetUser){
   // ★ 只寫入單一用戶的路徑，不覆蓋整包 apNotifs
   const u = targetUser || (arguments[0]);
@@ -1460,7 +1492,7 @@ async function approveBooking(qid){
   const entry={name:q.booker,note:q.note,type:'book',userType:q.userType,approvedBy:curUser,approvedAt:new Date().toLocaleString('zh-TW')};
   if(existFixed) entry.origFixed=existFixed;
   sysData[q.date][q.room][q.time]=entry;
-  // 移除 queue
+  // 移除 queue（本地先移除以立即更新畫面，實際同步改用 transaction，見下方）
   apQueue.splice(idx,1);
   // 通知預約者
   if(!apNotifs[q.booker]) apNotifs[q.booker]=[];
@@ -1469,10 +1501,10 @@ async function approveBooking(qid){
   if(curUser===q.booker) sendDesktopNotif('✅ 預約已批准',`${q.room} ${q.date} ${q.time} 已由 ${curUser} 批准`,'jj-ap-result');
   // 寫日誌
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 批准 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}（${q.note}）`,bookKey:q.date,bookRoom:q.room,bookTime:q.time,booker:q.booker,bookNote:q.note,cancellable:true});
-  // ★ 修正：在所有非同步寫入前先設保護旗標，避免 listener 在中途覆蓋
-  if(fbMode) _apQueueWriting=true;
-  await saveData(); await saveApQueue(); await saveApNotifs(q.booker);
-  // saveApQueue 內部已延遲 5 秒解除旗標，此處無需再處理
+  // ★ 修正：apQueue 改用 transaction 針對伺服器最新資料移除該筆，避免舊分頁把已被別人刪除的項目寫回去
+  await saveData();
+  await apQueueMutate(arr=>arr.filter(x=>x.id!==qid));
+  await saveApNotifs(q.booker);
   updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`✅ 已批准 ${q.booker} 的預約申請`,'s');
 }
@@ -1486,9 +1518,9 @@ async function rejectBooking(qid, reason){
   if(!apNotifs[q.booker]) apNotifs[q.booker]=[];
   apNotifs[q.booker].push({status:'rejected',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,reason:reason||'管理員未提供原因',t:new Date().toLocaleString('zh-TW')});
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 拒絕 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}，原因：${reason||'未說明'}`,cancellable:false});
-  // ★ 修正：寫入前先設保護旗標
-  if(fbMode) _apQueueWriting=true;
-  await saveApQueue(); await saveApNotifs(q.booker);
+  // ★ 修正：apQueue 改用 transaction 針對伺服器最新資料移除該筆
+  await apQueueMutate(arr=>arr.filter(x=>x.id!==qid));
+  await saveApNotifs(q.booker);
   updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`已拒絕並通知 ${q.booker}`,'i');
 }
@@ -1672,7 +1704,7 @@ async function batchApproveBookings(ids){
     notifsByUser[q.booker].push({status:'approved',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,t:now});
     // 累積日誌
     logsToAdd.push({t:now,msg:`[管理員 ${curUser}] 批准 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}（${q.note}）`,bookKey:q.date,bookRoom:q.room,bookTime:q.time,booker:q.booker,bookNote:q.note,cancellable:true});
-    // 從 queue 移除
+    // 從 queue 移除（本地先移除以立即更新畫面，實際同步改用 transaction）
     apQueue.splice(idx,1);
   });
 
@@ -1685,11 +1717,8 @@ async function batchApproveBookings(ids){
     // ① 批次寫入 sysData（一次 set 整包，而非逐筆）
     if(window.__markLocalSave) window.__markLocalSave();
     const sysDataPromise=FB.set('sysData',sysData);
-    // ② apQueue 一次寫入（加保護旗標，避免 listener 在寫入完成前覆蓋）
-    _apQueueWriting=true;
-    const queuePromise=FB.set('apQueue',apQueue).finally(()=>{
-      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
-    });
+    // ② apQueue 改用 transaction，針對伺服器最新陣列移除這批 id，避免舊分頁覆蓋別人剛做的變更
+    const queuePromise=apQueueMutate(arr=>arr.filter(x=>!ids.includes(x.id)));
     // ③ 通知分用戶寫入（各用戶各一次，數量 = 不同申請人數量）
     const notifPromises=Object.entries(notifsByUser).map(([uid,newNotifs])=>{
       if(!apNotifs[uid]) apNotifs[uid]=[];
@@ -1733,10 +1762,8 @@ async function batchRejectBookings(ids, reason){
   lss('jj_apQueue',apQueue);
 
   if(fbMode){
-    _apQueueWriting=true;
-    const queuePromise=FB.set('apQueue',apQueue).finally(()=>{
-      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
-    });
+    // apQueue 改用 transaction，針對伺服器最新陣列移除這批 id
+    const queuePromise=apQueueMutate(arr=>arr.filter(x=>!ids.includes(x.id)));
     const notifPromises=Object.entries(notifsByUser).map(([uid,newNotifs])=>{
       if(!apNotifs[uid]) apNotifs[uid]=[];
       apNotifs[uid]=[...apNotifs[uid],...newNotifs].slice(-10);
@@ -1774,12 +1801,9 @@ async function batchDeleteExpiredBookings(ids){
     }
   });
   lss('jj_apQueue',apQueue);
-  if(fbMode){
-    _apQueueWriting=true;
-    await FB.set('apQueue',apQueue).finally(()=>{
-      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
-    });
-  }
+  // ★ 修正：改用 transaction 針對伺服器最新陣列移除這批 id（而非把本地陣列整包蓋回去），
+  //   避免其他分頁/裝置日後寫入時，把這幾筆已刪除的過期項目又寫回 Firebase
+  await apQueueMutate(arr=>arr.filter(x=>!expiredIds.includes(x.id)));
   updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`已刪除 ${expiredIds.length} 筆過期申請紀錄`,'i');
 }
@@ -2537,6 +2561,7 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
     const qConflicts=needsApprovalSlots.filter(t=>apQueue.some(q=>q.date===ds&&q.room===room&&q.time===t));
     const allConflicts=[...new Set([...apConflicts,...qConflicts])];
     if(allConflicts.length){showMErr('bookErr',`時段 ${allConflicts.join('、')} 已被他人預約或有待審核申請，無法送出`);return;}
+    const newEntries=[];
     for(const t of needsApprovalSlots){
       const qEntry={
         id: Date.now()+'_'+Math.random().toString(36).slice(2,7),
@@ -2546,10 +2571,12 @@ G('confirmBookBtn').addEventListener('click', async ()=>{
         override: apCheckMap[t].override,
         requestedAt:new Date().toLocaleString('zh-TW')
       };
-      apQueue.push(qEntry);
+      newEntries.push(qEntry);
       addLog({t:new Date().toLocaleString('zh-TW'),msg:`${curUser} 申請審核預約 ${room} ${ds} ${t}（${note}）—— 等待管理員審核`,cancellable:false});
     }
-    await saveApQueue();
+    // ★ 修正：改用 transaction 把新申請「附加」到伺服器最新的 apQueue 上，
+    //   而不是把本地（可能是舊分頁的過期快照）整包蓋回去，避免復活已被刪除的項目
+    await apQueueMutate(arr=>[...arr, ...newEntries]);
     updateApBadge();
   }
 
