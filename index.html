@@ -933,7 +933,11 @@ async function saveApQueue(){
   lss('jj_apQueue',apQueue);
   if(fbMode){
     _apQueueWriting=true;
-    await FB.set('apQueue',apQueue).finally(()=>{ _apQueueWriting=false; });
+    // ★ 修正：寫入完成後延遲 5 秒才解除保護旗標，
+    //   防止 Firebase onValue listener 在寫入後立即回推舊快照覆蓋本地資料
+    await FB.set('apQueue',apQueue).finally(()=>{
+      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
+    });
   }
 }
 async function saveApNotifs(targetUser){
@@ -1335,11 +1339,24 @@ function startListeners(){
   const u4=FB.listen(`notifs/${curUser}`,v=>{ if(v&&Array.isArray(v)&&v.length){ notifs[curUser]=v; lss('jj_notifs',notifs); } });
 
   const u6=FB.listen('apQueue',v=>{
-    if(_apQueueWriting) return;   // ← 本地正在寫入時，忽略 Firebase 推送，避免覆蓋
+    // ★ 修正 Bug 3：
+    //   (a) 寫入保護期內忽略推送
+    //   (b) Firebase 推送的陣列若比本地「少」（代表本地剛做了刪除/批准），
+    //       不允許覆蓋，防止重連後把已刪資料推回來
+    if(_apQueueWriting) return;
     if(v&&Array.isArray(v)){
+      // 若 Firebase 推送的筆數 > 本地，代表有新申請進來，接受更新
+      // 若 Firebase 推送的筆數 ≤ 本地，且本地剛做過寫入（localStorage 版本較新），跳過
       const prevCount=apQueue.length;
-      apQueue=v;lss('jj_apQueue',v);
-      updateApBadge();updateBoard();
+      if(v.length < prevCount){
+        // Firebase 快照比本地少，代表本地刪除操作尚未被 Firebase 同步回來
+        // 此時不覆蓋，避免「刪了又回來」
+        return;
+      }
+      // 內容相同時也不重繪，節省效能
+      if(JSON.stringify(v)===JSON.stringify(apQueue)) return;
+      apQueue=v; lss('jj_apQueue',v);
+      updateApBadge(); updateBoard();
       if(isAdmin){
         renderApprovalList(); bindBatchEvents();
         if(v.length>prevCount){
@@ -1347,6 +1364,9 @@ function startListeners(){
           sendDesktopNotif('🔐 新審核申請',`${newest.booker} 申請預約 ${newest.room} ${newest.date} ${newest.time}`,'jj-ap-new');
         }
       }
+    } else if(v===null){
+      // Firebase 上已清空 apQueue（例如管理員在另一裝置清空）
+      if(!_apQueueWriting){ apQueue=[]; lss('jj_apQueue',[]); updateApBadge(); if(isAdmin){renderApprovalList();bindBatchEvents();} }
     }
   });
 
@@ -1449,7 +1469,10 @@ async function approveBooking(qid){
   if(curUser===q.booker) sendDesktopNotif('✅ 預約已批准',`${q.room} ${q.date} ${q.time} 已由 ${curUser} 批准`,'jj-ap-result');
   // 寫日誌
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 批准 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}（${q.note}）`,bookKey:q.date,bookRoom:q.room,bookTime:q.time,booker:q.booker,bookNote:q.note,cancellable:true});
+  // ★ 修正：在所有非同步寫入前先設保護旗標，避免 listener 在中途覆蓋
+  if(fbMode) _apQueueWriting=true;
   await saveData(); await saveApQueue(); await saveApNotifs(q.booker);
+  // saveApQueue 內部已延遲 5 秒解除旗標，此處無需再處理
   updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`✅ 已批准 ${q.booker} 的預約申請`,'s');
 }
@@ -1463,6 +1486,8 @@ async function rejectBooking(qid, reason){
   if(!apNotifs[q.booker]) apNotifs[q.booker]=[];
   apNotifs[q.booker].push({status:'rejected',room:q.room,date:q.date,time:q.time,note:q.note,adminName:curUser,reason:reason||'管理員未提供原因',t:new Date().toLocaleString('zh-TW')});
   addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 拒絕 ${q.booker} 的預約申請：${q.room} ${q.date} ${q.time}，原因：${reason||'未說明'}`,cancellable:false});
+  // ★ 修正：寫入前先設保護旗標
+  if(fbMode) _apQueueWriting=true;
   await saveApQueue(); await saveApNotifs(q.booker);
   updateBoard(); refreshAdminLog(); updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`已拒絕並通知 ${q.booker}`,'i');
@@ -1662,7 +1687,9 @@ async function batchApproveBookings(ids){
     const sysDataPromise=FB.set('sysData',sysData);
     // ② apQueue 一次寫入（加保護旗標，避免 listener 在寫入完成前覆蓋）
     _apQueueWriting=true;
-    const queuePromise=FB.set('apQueue',apQueue).finally(()=>{ _apQueueWriting=false; });
+    const queuePromise=FB.set('apQueue',apQueue).finally(()=>{
+      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
+    });
     // ③ 通知分用戶寫入（各用戶各一次，數量 = 不同申請人數量）
     const notifPromises=Object.entries(notifsByUser).map(([uid,newNotifs])=>{
       if(!apNotifs[uid]) apNotifs[uid]=[];
@@ -1707,7 +1734,9 @@ async function batchRejectBookings(ids, reason){
 
   if(fbMode){
     _apQueueWriting=true;
-    const queuePromise=FB.set('apQueue',apQueue).finally(()=>{ _apQueueWriting=false; });
+    const queuePromise=FB.set('apQueue',apQueue).finally(()=>{
+      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
+    });
     const notifPromises=Object.entries(notifsByUser).map(([uid,newNotifs])=>{
       if(!apNotifs[uid]) apNotifs[uid]=[];
       apNotifs[uid]=[...apNotifs[uid],...newNotifs].slice(-10);
@@ -1747,7 +1776,9 @@ async function batchDeleteExpiredBookings(ids){
   lss('jj_apQueue',apQueue);
   if(fbMode){
     _apQueueWriting=true;
-    await FB.set('apQueue',apQueue).finally(()=>{ _apQueueWriting=false; });
+    await FB.set('apQueue',apQueue).finally(()=>{
+      setTimeout(()=>{ _apQueueWriting=false; }, 5000);
+    });
   }
   updateApBadge(); renderApprovalList(); bindBatchEvents();
   toast(`已刪除 ${expiredIds.length} 筆過期申請紀錄`,'i');
