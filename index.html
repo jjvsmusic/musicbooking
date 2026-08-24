@@ -1938,57 +1938,64 @@ function checkApNotifs(){
 
 // 審核條件渲染
 let apRuleMode='dow';
+let _apRuleUIInited=false;   // 防止切換頁面時重複綁定事件
 function initApRuleUI(){
-  // 琴房格
+  // 琴房格（每次都重新渲染，因為琴房清單可能異動）
   const rg=G('apRoomGrid'); if(!rg) return;
   rg.innerHTML=rooms.map(r=>`<label class="ci"><input type="checkbox" name="apRoom" value="${esc(r)}"><span>${esc(r)}</span></label>`).join('');
-  // DOW 格
-  const dg=G('apDayGrid'); if(!dg) return;
-  dg.innerHTML=['一','二','三','四','五','六','日'].map((d,i)=>{
-    const v=[1,2,3,4,5,6,0][i];
-    return `<label class="ci"><input type="checkbox" name="apDay" value="${v}"><span>週${d}</span></label>`;
-  }).join('');
-  // 日期範圍星期篩選格
-  const rdg=G('apRangeDowGrid'); if(!rdg) return;
-  rdg.innerHTML=['一','二','三','四','五','六','日'].map((d,i)=>{
-    const v=[1,2,3,4,5,6,0][i];
-    return `<label class="ci"><input type="checkbox" name="apRangeDow" value="${v}"><span>週${d}</span></label>`;
-  }).join('');
-  // Time 格
-  const tg=G('apTimeGrid'); if(!tg) return;
-  tg.innerHTML=TIME_SLOTS.map(t=>`<label class="ci"><input type="checkbox" name="apTime" value="${t}"><span>${t}</span></label>`).join('');
-  const tg2=G('apDateTimeGrid'); if(!tg2) return;
-  tg2.innerHTML=TIME_SLOTS.map(t=>`<label class="ci"><input type="checkbox" name="apDateTime" value="${t}"><span>${t}</span></label>`).join('');
-  // Mode buttons
-  QA('[data-apm]').forEach(b=>{
-    b.addEventListener('click',()=>{
-      apRuleMode=b.dataset.apm;
-      QA('[data-apm]').forEach(x=>x.classList.toggle('active',x.dataset.apm===apRuleMode));
-      toggle('apDowWrap', apRuleMode==='dow');
-      toggle('apDateWrap', apRuleMode==='daterange');
+
+  // 以下只在第一次執行（靜態 grid + 事件綁定），防止切換頁面重複累加
+  if(!_apRuleUIInited){
+    _apRuleUIInited=true;
+    // DOW 格
+    const dg=G('apDayGrid'); if(!dg) return;
+    dg.innerHTML=['一','二','三','四','五','六','日'].map((d,i)=>{
+      const v=[1,2,3,4,5,6,0][i];
+      return `<label class="ci"><input type="checkbox" name="apDay" value="${v}"><span>週${d}</span></label>`;
+    }).join('');
+    // 日期範圍星期篩選格
+    const rdg=G('apRangeDowGrid'); if(!rdg) return;
+    rdg.innerHTML=['一','二','三','四','五','六','日'].map((d,i)=>{
+      const v=[1,2,3,4,5,6,0][i];
+      return `<label class="ci"><input type="checkbox" name="apRangeDow" value="${v}"><span>週${d}</span></label>`;
+    }).join('');
+    // Time 格
+    const tg=G('apTimeGrid'); if(!tg) return;
+    tg.innerHTML=TIME_SLOTS.map(t=>`<label class="ci"><input type="checkbox" name="apTime" value="${t}"><span>${t}</span></label>`).join('');
+    const tg2=G('apDateTimeGrid'); if(!tg2) return;
+    tg2.innerHTML=TIME_SLOTS.map(t=>`<label class="ci"><input type="checkbox" name="apDateTime" value="${t}"><span>${t}</span></label>`).join('');
+    // Mode buttons（用 onclick 覆寫，不累加）
+    QA('[data-apm]').forEach(b=>{
+      b.onclick=()=>{
+        apRuleMode=b.dataset.apm;
+        QA('[data-apm]').forEach(x=>x.classList.toggle('active',x.dataset.apm===apRuleMode));
+        toggle('apDowWrap', apRuleMode==='dow');
+        toggle('apDateWrap', apRuleMode==='daterange');
+      };
     });
-  });
-  // Add rule btn
-  G('addApRuleBtn').addEventListener('click', async ()=>{
-    const selRooms=QA('input[name="apRoom"]:checked').map(e=>e.value);
-    const override=G('apOverride')?.checked !== false; // 預設 true
-    if(apRuleMode==='dow'){
-      const dows=QA('input[name="apDay"]:checked').map(e=>e.value);
-      const times=QA('input[name="apTime"]:checked').map(e=>e.value);
-      if(!dows.length||!times.length){toast('請選擇星期與時段','e');return;}
-      apRules.push({type:'dow',dows,times,rooms:selRooms,override,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'d'});
-    } else {
-      const dateFrom=G('apDateFrom')?.value;
-      const dateTo=G('apDateTo')?.value;
-      const dows=QA('input[name="apRangeDow"]:checked').map(e=>e.value);
-      const times=QA('input[name="apDateTime"]:checked').map(e=>e.value);
-      if(!dateFrom||!dateTo){toast('請選擇起始與結束日期','e');return;}
-      if(dateFrom>dateTo){toast('起始日期不能晚於結束日期','e');return;}
-      if(!times.length){toast('請選擇時段','e');return;}
-      apRules.push({type:'daterange',dateFrom,dateTo,dows,times,rooms:selRooms,override,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'r'});
-    }
-    await saveApRules(); renderApRuleList(); toast('審核條件已新增','s');
-  });
+    // Add rule btn（用 onclick 取代 addEventListener，天然防重複）
+    G('addApRuleBtn').onclick = async ()=>{
+      const selRooms=QA('input[name="apRoom"]:checked').map(e=>e.value);
+      const override=G('apOverride')?.checked !== false; // 預設 true
+      if(apRuleMode==='dow'){
+        const dows=QA('input[name="apDay"]:checked').map(e=>e.value);
+        const times=QA('input[name="apTime"]:checked').map(e=>e.value);
+        if(!dows.length||!times.length){toast('請選擇星期與時段','e');return;}
+        apRules.push({type:'dow',dows,times,rooms:selRooms,override,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'d'});
+      } else {
+        const dateFrom=G('apDateFrom')?.value;
+        const dateTo=G('apDateTo')?.value;
+        const dows=QA('input[name="apRangeDow"]:checked').map(e=>e.value);
+        const times=QA('input[name="apDateTime"]:checked').map(e=>e.value);
+        if(!dateFrom||!dateTo){toast('請選擇起始與結束日期','e');return;}
+        if(dateFrom>dateTo){toast('起始日期不能晚於結束日期','e');return;}
+        if(!times.length){toast('請選擇時段','e');return;}
+        apRules.push({type:'daterange',dateFrom,dateTo,dows,times,rooms:selRooms,override,createdAt:new Date().toLocaleString('zh-TW'),id:Date.now()+'r'});
+      }
+      await saveApRules(); renderApRuleList(); toast('審核條件已新增','s');
+    };
+  }
+
   renderApRuleList();
 }
 
