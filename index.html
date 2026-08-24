@@ -2377,11 +2377,11 @@ function updateBoard(){
           }
         } else {
           // ── 空白格 ──
-          // 判斷是否為審核條件時段
-          const apR = (!isPast&&!outRange&&!isAdmin) ? needsApproval(ds,time,room) : {needed:false};
+          // 判斷是否為審核條件時段（管理員也查，以便顯示標記）
+          const apR = (!isPast&&!outRange) ? needsApproval(ds,time,room) : {needed:false,override:false};
           if(isPast||outRange){ slot.className='slot sf past'; slot.innerHTML='<span>—</span>'; }
           else if(apR.needed && !isAdmin){
-            // 審核條件空白格：顯示「需審核」橘色提示
+            // 學生視角：顯示「需審核」橘色提示
             slot.className='slot sf s-ap-required';
             slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:.75rem">🔐</span><span style="font-size:.52rem;color:var(--org2);font-weight:600;line-height:1.3">需審核</span><span style="font-size:.45rem;color:var(--tx3);line-height:1.2">方可預約</span></div>`;
             slot.style.cursor='pointer';
@@ -2402,6 +2402,13 @@ function updateBoard(){
               awBtn.onclick=(e)=>{e.stopPropagation();openAdminWriteModal(ds,room,time,null);};
               slot.addEventListener('click',()=>openAdminWriteModal(ds,room,time,null));
               slot.appendChild(awBtn);
+              // 管理員：若此格有審核條件，加上小標記（與固定排課格一致）
+              if(apR.needed){
+                const adm=document.createElement('div');
+                adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
+                adm.textContent='🔐 學生需審核';
+                slot.appendChild(adm);
+              }
             } else {
               slot.innerHTML='<span style="font-size:.9rem">＋</span>';
               slot.addEventListener('click',()=>{
