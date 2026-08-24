@@ -46,6 +46,7 @@ function initFirebase(){
     app = initializeApp(FIREBASE_CONFIG);
     db  = getDatabase(app);
     FB_READY = true;
+    watchConnectionState(db);   // ← 啟動連線狀態監聽
     window.__fbReady(db);
   } catch(e){
     console.error('[Firebase] 初始化失敗:', e);
@@ -64,6 +65,22 @@ window.__fb = {
   transaction: (path, updateFn) => FB_READY ? runTransaction(ref(db,path), updateFn) : Promise.resolve({committed:false}),
   ready:  ()           => FB_READY
 };
+
+// ── 監聽 Firebase 即時連線狀態（.info/connected）──
+// Firebase SDK 會在 WebSocket 斷線/重連時自動更新此節點，
+// 透過此監聽讓導覽列同步指示器能正確反映目前的連線狀況。
+function watchConnectionState(db) {
+  const connRef = ref(db, '.info/connected');
+  onValue(connRef, (snap) => {
+    const isOnline = snap.val() === true;
+    // 呼叫主腳本的 setSyncUI（若已掛載）；否則存入暫存讓 __fbReady 之後使用
+    if (typeof window.__onFbConnectionChange === 'function') {
+      window.__onFbConnectionChange(isOnline);
+    } else {
+      window.__fbPendingConnState = isOnline;
+    }
+  });
+}
 
 initFirebase();
 </script>
@@ -850,8 +867,24 @@ window.__fbReady = function(db){
     document.getElementById('fbNotice').classList.remove('hidden');
     setSyncUI(false);
   } else {
-    setSyncUI(true);
+    // 先顯示「連線中」，等 .info/connected 確認後再切換為「即時同步」
+    setSyncUI(false);
+    setSyncLabel('連線中…');
   }
+
+  // 掛載 Firebase 連線狀態回呼（由 module script 的 watchConnectionState 觸發）
+  window.__onFbConnectionChange = function(isOnline){
+    if(!fbMode) return;           // 離線模式不處理
+    setSyncUI(isOnline);
+    if(!isOnline) setSyncLabel('重新連線中…');
+  };
+
+  // 若 .info/connected 在 __fbReady 之前就已回報（極少見），立即套用
+  if(typeof window.__fbPendingConnState === 'boolean'){
+    window.__onFbConnectionChange(window.__fbPendingConnState);
+    delete window.__fbPendingConnState;
+  }
+
   // Now boot the app
   appBoot();
 };
@@ -861,6 +894,10 @@ function setSyncUI(online){
   const lbl=document.getElementById('syncLabel');
   dot.className='sync-dot'+(online?'':' off');
   lbl.textContent=online?'即時同步':'離線模式';
+}
+function setSyncLabel(text){
+  const lbl=document.getElementById('syncLabel');
+  if(lbl) lbl.textContent=text;
 }
 
 // ═══════════════════════════════════
