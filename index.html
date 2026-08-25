@@ -2553,8 +2553,9 @@ function openBookModal(room,startTime,fixedD){
     else if(reqApproval){ labelExtra='⏳'; titleText='此時段需管理員審核後才正式登記'; }
     tg.innerHTML+=`<label class="ci${finalDis?' disabled':''}" style="${reqApproval?'color:var(--org2)':''}" title="${titleText}"><input type="checkbox" name="bTime" value="${ts}"${(ts===startTime&&!finalDis)?' checked':''}${finalDis?' disabled':''}><span>${ts}${labelExtra}</span></label>`;
   });
-  G('bookNoteSelect').value='自主練習';
-  hide('lessonWrap'); hide('bookCoWrap'); hide('bookSpecialWrap'); hide('noteOtherWrap');
+  const _isTeacher = (users[curUser]?.type === 'teacher' || users[curUser]?.type === 'admin');
+  G('bookNoteSelect').value = _isTeacher ? '主副修課' : '自主練習';
+  toggle('lessonWrap', _isTeacher); hide('bookCoWrap'); hide('bookSpecialWrap'); hide('noteOtherWrap');
   G('lessonTeacher').value=''; G('lessonInstrument').value=''; G('bookCoName').value=''; G('bookSpecialTeacher').value=''; G('bookNoteOther').value='';
   hide('bookErr');
   openModal('bookModal');
