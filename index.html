@@ -3676,29 +3676,55 @@ function renderQueryList(){
       const now = new Date();
       const [rh,rm] = r.time.split(':').map(Number);
       const slotPast = (r.dateKey < today) || (isToday && (rh < now.getHours() || (rh===now.getHours()&&rm<=now.getMinutes())));
-      html += `<div class="qri" data-date="${esc(r.dateKey)}">
-        <div class="qri-left">
-          <div class="qri-room">${esc(r.room)} &nbsp;<span style="color:var(--tx3)">·</span>&nbsp; <b style="color:var(--tx)">${esc(r.time)}</b></div>
-          <div class="qri-note">${esc(r.note)}</div>
+      const queryName = G('queryName').value.trim();
+      const isOwn = curUser && queryName === curUser;
+      const canDel = !slotPast && (isOwn || isAdmin);
+      html += `<div class="qri" data-date="${esc(r.dateKey)}" data-room="${esc(r.room)}" data-time="${esc(r.time)}" style="flex-direction:column;align-items:stretch;cursor:default">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="qri-left" style="flex:1;cursor:pointer" data-jump="1">
+            <div class="qri-room">${esc(r.room)} &nbsp;<span style="color:var(--tx3)">·</span>&nbsp; <b style="color:var(--tx)">${esc(r.time)}</b></div>
+            <div class="qri-note">${esc(r.note)}</div>
+          </div>
+          <div class="qri-right" style="align-items:flex-end;gap:4px">
+            <span class="qbadge ${r.badgeCls}">${r.status}${slotPast&&isToday?' (已過)':''}</span>
+            ${canDel
+              ? `<button class="qri-del-btn" data-date="${esc(r.dateKey)}" data-room="${esc(r.room)}" data-time="${esc(r.time)}" style="background:rgba(217,64,64,.12);border:1px solid rgba(217,64,64,.3);color:var(--red2);border-radius:12px;padding:2px 10px;font-size:.62rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;white-space:nowrap">✕ 取消預約</button>`
+              : `<span style="font-size:.6rem;color:var(--tx3)">點擊跳至看板</span>`
+            }
+          </div>
         </div>
-        <div class="qri-right">
-          <span class="qbadge ${r.badgeCls}">${r.status}${slotPast&&isToday?' (已過)':''}</span>
-          <span style="font-size:.6rem;color:var(--tx3)">點擊跳至看板</span>
-        </div>
+        ${canDel ? `<div class="qri-del-confirm" style="display:none;margin-top:8px;background:rgba(217,64,64,.06);border:1px solid rgba(217,64,64,.2);border-radius:8px;padding:10px 12px">
+          ${(!isAdmin || queryName===curUser)
+            ? `<div style="font-size:.75rem;color:var(--tx2);margin-bottom:6px">請輸入密碼確認取消：</div>
+               <div style="display:flex;gap:6px;align-items:center">
+                 <input type="password" class="qri-pwd fi" placeholder="請輸入密碼" style="flex:1;padding:6px 10px;font-size:.78rem">
+                 <button class="qri-del-ok btn br bsm" style="white-space:nowrap">確認取消</button>
+                 <button class="qri-del-cancel btn bgh bsm" style="white-space:nowrap">返回</button>
+               </div>
+               <div class="qri-del-err" style="display:none;color:var(--red2);font-size:.72rem;margin-top:5px"></div>`
+            : `<div style="font-size:.75rem;color:var(--tx2);margin-bottom:6px">確定要取消 <b>${esc(queryName)}</b> 在 ${esc(r.room)} · ${esc(r.time)} 的預約？</div>
+               <div class="fg" style="margin-bottom:8px"><label style="font-size:.71rem;color:var(--tx2)">取消原因 <span style="color:var(--red2)">*</span></label><input class="qri-reason fi" placeholder="請填寫原因（將通知預約者）" style="padding:6px 10px;font-size:.78rem"></div>
+               <div style="display:flex;gap:6px">
+                 <button class="qri-del-ok btn br bsm" style="white-space:nowrap">確認取消</button>
+                 <button class="qri-del-cancel btn bgh bsm" style="white-space:nowrap">返回</button>
+               </div>
+               <div class="qri-del-err" style="display:none;color:var(--red2);font-size:.72rem;margin-top:5px"></div>`
+          }
+        </div>` : ''}
       </div>`;
     });
   });
 
   G('queryResultList').innerHTML = html;
 
-  // 點擊跳至對應日期
-  G('queryResultList').querySelectorAll('.qri').forEach(el=>{
+  // 點擊左側內容跳至對應日期
+  G('queryResultList').querySelectorAll('[data-jump]').forEach(el=>{
     el.addEventListener('click',()=>{
-      const d = el.dataset.date;
+      const row = el.closest('.qri');
+      const d = row.dataset.date;
       G('viewDate').value = d;
       closeModals();
-      // 自動切換到該時段對應的時間欄（上午/下午/放學後）
-      const firstTime = el.querySelector('.qri-room b')?.textContent||'';
+      const firstTime = row.querySelector('.qri-room b')?.textContent||'';
       if(firstTime){
         const h = parseInt(firstTime.split(':')[0],10);
         if(h>=17&&(h>17||(firstTime.split(':')[1]||'0')>='30')) boardView='ev';
@@ -3713,6 +3739,64 @@ function renderQueryList(){
       }
       updateBoard();
       G('boardPage').scrollIntoView({behavior:'smooth'});
+    });
+  });
+
+  // 取消預約按鈕：展開確認區
+  G('queryResultList').querySelectorAll('.qri-del-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const row = btn.closest('.qri');
+      const confirm = row.querySelector('.qri-del-confirm');
+      if(confirm) { confirm.style.display = confirm.style.display==='none'?'block':'none'; }
+    });
+  });
+
+  // 返回按鈕：收合確認區
+  G('queryResultList').querySelectorAll('.qri-del-cancel').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      btn.closest('.qri-del-confirm').style.display='none';
+    });
+  });
+
+  // 確認取消預約
+  G('queryResultList').querySelectorAll('.qri-del-ok').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.stopPropagation();
+      const row = btn.closest('.qri');
+      const confirmDiv = btn.closest('.qri-del-confirm');
+      const errEl = confirmDiv.querySelector('.qri-del-err');
+      const dateKey = row.dataset.date;
+      const room    = row.dataset.room;
+      const time    = row.dataset.time;
+      const d = sysData[dateKey]?.[room]?.[time];
+      if(!d){ toast('找不到預約資料','e'); return; }
+      const queryName = G('queryName').value.trim();
+
+      if(isAdmin && queryName !== curUser){
+        // 管理員取消他人
+        const reasonEl = confirmDiv.querySelector('.qri-reason');
+        const reason = reasonEl ? reasonEl.value.trim() : '';
+        if(!reason){ errEl.textContent='請填寫取消原因'; errEl.style.display='block'; return; }
+        pushNotif(d.name, room, dateKey, time, d.note, reason);
+        await doDelete(dateKey, room, time, `[管理員 ${curUser}] 取消 ${d.name} 的預約，原因：${reason}`);
+        toast('已取消並通知當事人','s');
+        doQuery(); // 重新整理列表
+      } else {
+        // 本人取消（需密碼）
+        const pwdEl = confirmDiv.querySelector('.qri-pwd');
+        const pwd = pwdEl ? pwdEl.value : '';
+        if(users[d.name]?.pwd === pwd){
+          await doDelete(dateKey, room, time);
+          toast('預約已取消','i');
+          doQuery(); // 重新整理列表
+        } else {
+          errEl.textContent='密碼錯誤，請重新輸入';
+          errEl.style.display='block';
+          if(pwdEl) pwdEl.value='';
+        }
+      }
     });
   });
 }
