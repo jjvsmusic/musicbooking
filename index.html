@@ -3339,6 +3339,13 @@ document.addEventListener('click', ev => {
 // ═══════════════════════════════════
 // CSV
 // ═══════════════════════════════════
+// 將 2026/9/2 或 2026-9-2 等格式統一轉為 2026-09-02
+function normDateStr(s){
+  if(!s) return '';
+  const m = String(s).trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if(!m) return s; // 無法辨識，原樣回傳（讓後續 isNaN 處理）
+  return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+}
 G('importCsvBtn').addEventListener('click', async ()=>{
   const raw=V('csvImportText'); if(!raw){ toast('請貼入CSV內容','e'); return; }
   const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#'));
@@ -3370,7 +3377,7 @@ G('importCsvBtn').addEventListener('click', async ()=>{
       // Lock: always store under date keys (requires date range, or defaults to next 8 weeks)
       let dates=[];
       if(dateFrom&&dateTo){
-        let cur=new Date(dateFrom+'T00:00:00'); const end=new Date(dateTo+'T00:00:00');
+        let cur=new Date(normDateStr(dateFrom)+'T00:00:00'); const end=new Date(normDateStr(dateTo)+'T00:00:00');
         if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return;
         }
         while(cur<=end){ if(cur.getDay()===dow) dates.push(dateStr(cur)); cur.setDate(cur.getDate()+1);
@@ -3388,8 +3395,8 @@ G('importCsvBtn').addEventListener('click', async ()=>{
         if(!sysData[k]) sysData[k]={}; if(!sysData[k][room]) sysData[k][room]={};
         slots.forEach(t=>{ sysData[k][room][t]={teacher:label,remark:remark||'',type:'fixed'}; });
       } else {
-        let cur=new Date(dateFrom+'T00:00:00');
-        const end=new Date(dateTo+'T00:00:00');
+        let cur=new Date(normDateStr(dateFrom)+'T00:00:00');
+        const end=new Date(normDateStr(dateTo)+'T00:00:00');
         if(isNaN(cur)||isNaN(end)){ errs.push(`第${i+1}行日期格式錯誤`); skip++; return; }
         while(cur<=end){ if(cur.getDay()===dow){ const ds=dateStr(cur);
         if(!sysData[ds]) sysData[ds]={}; if(!sysData[ds][room]) sysData[ds][room]={}; slots.forEach(t=>{ sysData[ds][room][t]={teacher:label,remark:remark||'',type:'fixed'}; }); } cur.setDate(cur.getDate()+1); }
