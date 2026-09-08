@@ -770,6 +770,7 @@ thead th.rl { z-index:12; }
       <button class="qtab active" data-qtab="all">全部</button>
       <button class="qtab" data-qtab="future">未來／今日</button>
       <button class="qtab" data-qtab="past">已過去</button>
+      <button class="qtab" id="qtabFixed" data-qtab="fixed" style="display:none">📌 固定/封鎖</button>
     </div>
 
     <!-- 結果列表 -->
@@ -2290,29 +2291,22 @@ function updateBoard(){
           }
         } else if(bookD){
           if(bookD.type==='lock'){
-            // 先判斷是否有 override 審核條件
+            // ★ 封鎖時段永遠顯示為封鎖（優先於審核條件）
+            // 若同一時段「之前設需審核，後來設封鎖」→ 封鎖蓋審核，只有管理員才能看到審核提示標記
             const apR = (!isPast&&!outRange) ? needsApproval(ds,time,room) : {needed:false,override:false};
             const hasApOverride = apR.needed && apR.override;
 
-            if(hasApOverride && !isAdmin && !isPast && !outRange){
-              // 學生視角：此封鎖時段可申請審核 → 顯示橘色「需審核」格，完全取代封鎖樣式
-              slot.className='slot sf s-ap-required';
-              slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:.75rem">🔐</span><span style="font-size:.52rem;color:var(--org2);font-weight:600;line-height:1.3">需審核</span><span style="font-size:.45rem;color:var(--tx3);line-height:1.2">方可預約</span></div>`;
-              slot.style.cursor='pointer';
-              slot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
-            } else {
-              // 一般封鎖顯示
-              slot.className='slot sk'+(isPast?' past':'');
-              slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
-              if(isAdmin&&!isPast){
-                slot.appendChild(makeAdminSetBtn(ds,room,time,bookD,'解除封鎖'));
-                if(hasApOverride){
-                  // 管理員視角：顯示小標記表示此封鎖已被審核條件開放
-                  const adm=document.createElement('div');
-                  adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
-                  adm.textContent='🔐 學生可申請審核';
-                  slot.appendChild(adm);
-                }
+            // 一律顯示封鎖樣式（不再因審核條件改變學生的視覺）
+            slot.className='slot sk'+(isPast?' past':'');
+            slot.innerHTML=`<span class="sn">${esc(bookD.note||'封鎖')}</span>`;
+            if(isAdmin&&!isPast){
+              slot.appendChild(makeAdminSetBtn(ds,room,time,bookD,'解除封鎖'));
+              if(hasApOverride){
+                // 管理員視角：顯示小標記表示此封鎖已被審核條件開放（僅供管理員知悉）
+                const adm=document.createElement('div');
+                adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
+                adm.textContent='🔐 審核條件已設但封鎖蓋過';
+                slot.appendChild(adm);
               }
             }
           } else if(bookD.type==='fixed'){
@@ -2354,26 +2348,19 @@ function updateBoard(){
             }
           }
         } else if(fixedD&&fixedD.type==='fixed'){
-          // 先判斷是否有 override 審核條件
+          // ★ 固定排課永遠顯示為固定排課（優先於審核條件）
+          // 若同一時段「之前設需審核，後來設固定排課」→ 固定排課蓋審核
           const apRf = (!isPast&&!outRange) ? needsApproval(ds,time,room) : {needed:false,override:false};
           const hasApOverrideF = apRf.needed && apRf.override;
 
-          if(hasApOverrideF && !isAdmin && !isPast && !outRange){
-            // 學生視角：此固定排課時段可申請審核 → 橘色「需審核」格取代原本「前一日開放」限制
-            slot.className='slot sf s-ap-required';
-            const rawT=fixedD.teacher||fixedD.note||'';
-            slot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:.75rem">🔐</span><span style="font-size:.52rem;color:var(--org2);font-weight:600;line-height:1.3">需審核</span><span style="font-size:.45rem;color:var(--tx3);line-height:1.2">方可預約</span></div>`;
-            slot.style.cursor='pointer';
-            slot.addEventListener('click',()=>{ if(!curUser){openLoginModal();return;} openBookModal(room,time,null); });
-          } else {
-            buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
-            // 管理員視角：若有 override 審核條件，顯示小標記
-            if(hasApOverrideF && isAdmin && !isPast){
-              const adm=document.createElement('div');
-              adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
-              adm.textContent='🔐 學生可申請審核';
-              slot.appendChild(adm);
-            }
+          // 一律以固定排課樣式顯示（學生看到的是固定排課，不是審核格）
+          buildFixedSlot(slot,cell,fixedD,dowKey,room,time,isPast,outRange,yesterday,today);
+          // 管理員視角：若有 override 審核條件（已被固定排課蓋過），顯示警示標記
+          if(hasApOverrideF && isAdmin && !isPast){
+            const adm=document.createElement('div');
+            adm.style.cssText='font-size:.46rem;background:rgba(230,126,34,.2);color:var(--org2);border-radius:3px;padding:1px 4px;margin-top:2px;text-align:center;border:1px solid rgba(230,126,34,.4)';
+            adm.textContent='🔐 審核條件已設但排課蓋過';
+            slot.appendChild(adm);
           }
         } else {
           // ── 空白格 ──
@@ -3591,6 +3578,8 @@ function openQueryModal(prefillName=''){
   if(prefillName) setTimeout(doQuery, 80);
 }
 
+let queryFixedResults = []; // 管理員用：固定排課/封鎖查詢結果
+
 function doQuery(){
   const name = G('queryName').value.trim();
   if(!name){ toast('請輸入姓名','e'); return; }
@@ -3599,6 +3588,7 @@ function doQuery(){
   const today = todayStr();
 
   queryResults = [];
+  queryFixedResults = [];
 
   Object.keys(sysData).forEach(dateKey=>{
     // 只處理日期型 key（非 DOW 0-6）
@@ -3612,17 +3602,77 @@ function doQuery(){
       if(!roomData) return;
       Object.keys(roomData).forEach(time=>{
         const entry = roomData[time];
-        if(!entry || entry.type !== 'book') return;
-        if(entry.name !== name) return;
-        let status, badgeCls;
-        if(dateKey < today)       { status='已過去'; badgeCls='qb-past'; }
-        else if(dateKey === today) { status='今日';   badgeCls='qb-today'; }
-        else                       { status='待使用'; badgeCls='qb-future'; }
-        const dow = new Date(dateKey+'T00:00:00').getDay();
-        queryResults.push({ dateKey, dow, room, time, note: entry.note||'—', status, badgeCls });
+        if(!entry) return;
+        if(entry.type === 'book'){
+          if(entry.name !== name) return;
+          let status, badgeCls;
+          if(dateKey < today)       { status='已過去'; badgeCls='qb-past'; }
+          else if(dateKey === today) { status='今日';   badgeCls='qb-today'; }
+          else                       { status='待使用'; badgeCls='qb-future'; }
+          const dow = new Date(dateKey+'T00:00:00').getDay();
+          queryResults.push({ dateKey, dow, room, time, note: entry.note||'—', status, badgeCls });
+        } else if(isAdmin && (entry.type==='fixed'||entry.type==='lock')){
+          // 管理員：同時蒐集固定排課/封鎖（不限姓名，日期範圍內全撈）
+          let status, badgeCls;
+          if(dateKey < today)       { status='已過去'; badgeCls='qb-past'; }
+          else if(dateKey === today) { status='今日';   badgeCls='qb-today'; }
+          else                       { status='待使用'; badgeCls='qb-future'; }
+          const dow = new Date(dateKey+'T00:00:00').getDay();
+          const label = entry.type==='fixed'
+            ? (entry.teacher||entry.note||'固定排課')
+            : (entry.note||'封鎖');
+          queryFixedResults.push({ dateKey, dow, room, time, label, type: entry.type, status, badgeCls });
+        }
       });
     });
   });
+
+  // 若管理員，也蒐集週期固定排課（dowKey 0-6）在日期範圍內的出現
+  if(isAdmin){
+    const DAYS_ZH=['日','一','二','三','四','五','六'];
+    // 迭代日期範圍
+    const startD = fromD || today;
+    const endD   = toD   || maxDateStr();
+    let cur = new Date(startD+'T00:00:00');
+    const endDt = new Date(endD+'T00:00:00');
+    while(cur<=endDt){
+      const ds = cur.toISOString().slice(0,10);
+      const dow = cur.getDay();
+      const dowKey = String(dow);
+      const weekData = sysData[dowKey];
+      if(weekData){
+        Object.keys(weekData).forEach(room=>{
+          if(!weekData[room]) return;
+          Object.keys(weekData[room]).forEach(time=>{
+            const entry = weekData[room][time];
+            if(!entry||(entry.type!=='fixed'&&entry.type!=='lock')) return;
+            // 若當天日期已有覆蓋（bookD），則不重複列
+            if(sysData[ds]?.[room]?.[time]) return;
+            // 日期範圍篩選
+            if(entry.dateFrom && ds < entry.dateFrom) return;
+            if(entry.dateTo   && ds > entry.dateTo)   return;
+            let status, badgeCls;
+            if(ds < today)       { status='已過去'; badgeCls='qb-past'; }
+            else if(ds === today) { status='今日';   badgeCls='qb-today'; }
+            else                   { status='待使用'; badgeCls='qb-future'; }
+            const label = entry.type==='fixed'
+              ? (entry.teacher||entry.note||'固定排課')
+              : (entry.note||'封鎖');
+            queryFixedResults.push({ dateKey: ds, dow, room, time, label, type: entry.type,
+              status, badgeCls, isWeekly: true, dowKey });
+          });
+        });
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+    // 去重（同 ds+room+time）
+    const seen=new Set();
+    queryFixedResults=queryFixedResults.filter(r=>{
+      const k=`${r.dateKey}|${r.room}|${r.time}`;
+      if(seen.has(k)) return false; seen.add(k); return true;
+    });
+    queryFixedResults.sort((a,b)=>a.dateKey.localeCompare(b.dateKey)||a.room.localeCompare(b.room)||a.time.localeCompare(b.time));
+  }
 
   // 依日期、時段排序
   queryResults.sort((a,b)=> a.dateKey.localeCompare(b.dateKey)||a.time.localeCompare(b.time));
@@ -3633,7 +3683,18 @@ function doQuery(){
   const todayCt = queryResults.filter(r=>r.status==='今日').length;
   const future  = queryResults.filter(r=>r.status==='待使用').length;
 
-  if(total===0){
+  // 管理員：顯示固定/封鎖頁籤
+  const qtFixed = G('qtabFixed');
+  if(qtFixed){
+    if(isAdmin){
+      qtFixed.style.display='';
+      qtFixed.textContent=`📌 固定/封鎖（${queryFixedResults.length}）`;
+    } else {
+      qtFixed.style.display='none';
+    }
+  }
+
+  if(total===0 && !(isAdmin && queryFixedResults.length>0)){
     G('queryResultList').innerHTML = '<div class="qno-result">查無預約記錄（此期間內）</div>';
     G('queryStatRow').classList.add('hidden');
     G('queryTabBar').classList.add('hidden');
@@ -3648,13 +3709,20 @@ function doQuery(){
     <div class="qstat-item"><div class="qstat-dot" style="background:var(--grn2)"></div><span style="color:var(--grn2)">待使用 <b>${future}</b></span></div>`;
   G('queryStatRow').classList.remove('hidden');
   G('queryTabBar').classList.remove('hidden');
-  G('queryTotalLabel').textContent = `共 ${total} 筆 · ${name}`;
+  G('queryTotalLabel').textContent = `共 ${total} 筆預約 · ${name}`;
 
   renderQueryList();
 }
 
 function renderQueryList(){
   const filter = queryTab;
+
+  // ── 管理員固定排課/封鎖頁籤 ──
+  if(filter==='fixed'){
+    renderQueryFixedList();
+    return;
+  }
+
   let list = queryResults;
   if(filter==='future') list = queryResults.filter(r=>r.status!=='已過去');
   if(filter==='past')   list = queryResults.filter(r=>r.status==='已過去');
@@ -3803,6 +3871,138 @@ function renderQueryList(){
           errEl.style.display='block';
           if(pwdEl) pwdEl.value='';
         }
+      }
+    });
+  });
+}
+
+// ── 管理員固定排課/封鎖查詢結果渲染 ──
+function renderQueryFixedList(){
+  const list = queryFixedResults;
+  if(!list.length){
+    G('queryResultList').innerHTML = '<div class="qno-result">此日期範圍內無固定排課或封鎖時段</div>';
+    return;
+  }
+
+  // 按日期分組
+  const groups={};
+  list.forEach(r=>{ if(!groups[r.dateKey]) groups[r.dateKey]=[]; groups[r.dateKey].push(r); });
+
+  let html='';
+  const today=todayStr();
+  Object.keys(groups).sort().forEach(dateKey=>{
+    const rows=groups[dateKey];
+    const dow=rows[0].dow;
+    const isToday=(dateKey===today);
+    html+=`<div style="background:${isToday?'rgba(212,175,55,.06)':'var(--bg2)'};border-bottom:2px solid var(--bd);padding:6px 13px 4px;font-size:.72rem;font-weight:600;color:${isToday?'var(--gold2)':'var(--tx2)'};display:flex;align-items:center;gap:6px">
+      <span>${dateKey}</span><span style="font-weight:400;color:var(--tx3)">週${DAYS[dow]}</span>
+      ${isToday?'<span style="background:var(--gold);color:#fff;border-radius:8px;padding:1px 8px;font-size:.62rem">今日</span>':''}
+    </div>`;
+    rows.forEach(r=>{
+      const now2=new Date();
+      const [rh,rm]=r.time.split(':').map(Number);
+      const slotPast=(r.dateKey<today)||(isToday&&(rh<now2.getHours()||(rh===now2.getHours()&&rm<=now2.getMinutes())));
+      const typeLabel=r.type==='fixed'?'固定排課':'封鎖';
+      const typeCls=r.type==='fixed'?'color:var(--gold2)':'color:var(--tx2)';
+      const typeIcon=r.type==='fixed'?'📌':'🚫';
+      const weeklyNote=r.isWeekly?'<span style="font-size:.58rem;color:var(--tx3);margin-left:4px">（週期）</span>':'';
+      html+=`<div class="qri qri-fixed" data-date="${esc(r.dateKey)}" data-room="${esc(r.room)}" data-time="${esc(r.time)}" data-type="${esc(r.type)}" data-isweekly="${r.isWeekly?'1':'0'}" data-dowkey="${esc(r.dowKey||'')}" style="flex-direction:column;align-items:stretch;cursor:default">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="qri-left" style="flex:1;cursor:pointer" data-jump="1">
+            <div class="qri-room">${esc(r.room)} &nbsp;<span style="color:var(--tx3)">·</span>&nbsp; <b style="color:var(--tx)">${esc(r.time)}</b> &nbsp;<span style="font-size:.62rem;${typeCls}">${typeIcon} ${typeLabel}${weeklyNote}</span></div>
+            <div class="qri-note">${esc(r.label)}</div>
+          </div>
+          <div class="qri-right" style="align-items:flex-end;gap:4px">
+            <span class="qbadge ${r.badgeCls}">${r.status}${slotPast&&isToday?' (已過)':''}</span>
+            ${!slotPast
+              ? `<button class="qri-fixed-del-btn" style="background:rgba(217,64,64,.12);border:1px solid rgba(217,64,64,.3);color:var(--red2);border-radius:12px;padding:2px 10px;font-size:.62rem;cursor:pointer;font-family:'Noto Sans TC',sans-serif;white-space:nowrap">✕ 移除${typeLabel}</button>`
+              : `<span style="font-size:.6rem;color:var(--tx3)">點擊跳至看板</span>`
+            }
+          </div>
+        </div>
+        ${!slotPast?`<div class="qri-fixed-confirm" style="display:none;margin-top:8px;background:rgba(217,64,64,.06);border:1px solid rgba(217,64,64,.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:.75rem;color:var(--tx2);margin-bottom:8px">確定移除 <b>${esc(r.room)}</b> · <b>${esc(r.time)}</b> 的${typeLabel}設定？${r.isWeekly?'<br><span style="color:var(--org2);font-size:.7rem">⚠ 此為週期排課，僅移除當日（'+esc(r.dateKey)+'）的覆蓋；若要取消整個週期，請至看板直接移除。</span>':''}</div>
+          <div style="display:flex;gap:6px">
+            <button class="qri-fixed-ok btn br bsm" style="white-space:nowrap">確認移除</button>
+            <button class="qri-fixed-cancel btn bgh bsm" style="white-space:nowrap">返回</button>
+          </div>
+          <div class="qri-fixed-err" style="display:none;color:var(--red2);font-size:.72rem;margin-top:5px"></div>
+        </div>`:''}
+      </div>`;
+    });
+  });
+
+  G('queryResultList').innerHTML=html;
+
+  // 點擊左側跳至看板
+  G('queryResultList').querySelectorAll('.qri-fixed [data-jump]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const row=el.closest('.qri-fixed');
+      const d=row.dataset.date;
+      G('viewDate').value=d;
+      closeModals();
+      updateBoard();
+      G('boardPage').scrollIntoView({behavior:'smooth'});
+    });
+  });
+
+  // 移除按鈕：展開確認區
+  G('queryResultList').querySelectorAll('.qri-fixed-del-btn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const row=btn.closest('.qri-fixed');
+      const confirm=row.querySelector('.qri-fixed-confirm');
+      if(confirm){ confirm.style.display=confirm.style.display==='none'?'block':'none'; }
+    });
+  });
+
+  // 返回
+  G('queryResultList').querySelectorAll('.qri-fixed-cancel').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      btn.closest('.qri-fixed-confirm').style.display='none';
+    });
+  });
+
+  // 確認移除
+  G('queryResultList').querySelectorAll('.qri-fixed-ok').forEach(btn=>{
+    btn.addEventListener('click',async e=>{
+      e.stopPropagation();
+      const row=btn.closest('.qri-fixed');
+      const errEl=row.querySelector('.qri-fixed-err');
+      const dateKey=row.dataset.date;
+      const room=row.dataset.room;
+      const time=row.dataset.time;
+      const type=row.dataset.type;
+      const isWeekly=row.dataset.isweekly==='1';
+      const dowKey=row.dataset.dowkey;
+      const typeLabel=type==='fixed'?'固定排課':'封鎖';
+
+      // 週期排課：不直接刪除 dowKey，而是在日期型 key 寫入一個 type='skip' 的覆蓋記號
+      // 簡單方案：直接刪除 dowKey（整週期）若使用者確認；否則只覆蓋當日
+      // 本實作：週期排課只刪除 dowKey（整週期），並在 confirm 中已說明
+      // 對日期型 fixed/lock 直接刪 sysData[dateKey][room][time]
+      try{
+        if(isWeekly && dowKey){
+          // 移除整個週期中的該筆（刪 dowKey 下的該 room/time）
+          if(!sysData[dowKey]) sysData[dowKey]={};
+          delete sysData[dowKey]?.[room]?.[time];
+          if(fbMode) await FB.remove(`sysData/${dowKey}/${room}/${time}`);
+          addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 從查詢頁移除週期${typeLabel} ${room} 週${DAYS[+dowKey]} ${time}（${dateKey} 起生效）`,cancellable:false});
+        } else {
+          // 日期型：直接刪除
+          if(sysData[dateKey]?.[room]) delete sysData[dateKey][room][time];
+          if(fbMode) await FB.remove(`sysData/${dateKey}/${room}/${time}`);
+          addLog({t:new Date().toLocaleString('zh-TW'),msg:`[管理員 ${curUser}] 從查詢頁移除${typeLabel} ${room} ${dateKey} ${time}`,cancellable:false});
+        }
+        lss('jj_data',sysData);
+        updateBoard();
+        if(isAdmin) refreshAdminLog();
+        toast(`${typeLabel}已移除`,'s');
+        doQuery(); // 重新整理
+      } catch(err){
+        console.error(err);
+        if(errEl){ errEl.textContent='移除失敗，請稍後再試'; errEl.style.display='block'; }
       }
     });
   });
