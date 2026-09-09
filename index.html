@@ -3630,9 +3630,10 @@ function doQuery(){
   // 若管理員，也蒐集週期固定排課（dowKey 0-6）在日期範圍內的出現
   if(isAdmin){
     const DAYS_ZH=['日','一','二','三','四','五','六'];
-    // 迭代日期範圍
+    // 迭代日期範圍（最多 180 天，防止無結束日時凍結頁面）
     const startD = fromD || today;
-    const endD   = toD   || maxDateStr();
+    const _capEnd = (()=>{ const d=new Date(startD+'T00:00:00'); d.setDate(d.getDate()+180); return dateStr(d); })();
+    const endD   = toD ? (toD < _capEnd ? toD : _capEnd) : _capEnd;
     let cur = new Date(startD+'T00:00:00');
     const endDt = new Date(endD+'T00:00:00');
     while(cur<=endDt){
